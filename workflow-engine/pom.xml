@@ -97,6 +97,20 @@
             <version>${a2a.t.sdk.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>net.openan</groupId>
+            <artifactId>observability-sdk</artifactId>
+            <version>${observability.sdk.version}</version>
+            <!-- The workflow engine exports through the SDK's OTLP/gRPC path. Excluding the
+                 optional HTTP sender avoids a transitive OkHttp conflict with a2a-t-client. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-exporter-sender-okhttp</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- JSON -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

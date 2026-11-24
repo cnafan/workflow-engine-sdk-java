@@ -38,6 +38,7 @@ import dev.openan.workflow.engine.model.TaskStatus;
 import dev.openan.workflow.engine.model.Workflow;
 import dev.openan.workflow.engine.model.WorkflowInput;
 import dev.openan.workflow.engine.model.WorkflowStep;
+import dev.openan.workflow.engine.observability.WorkflowObservability;
 import dev.openan.workflow.engine.util.SensitiveDataRedactor;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,6 +57,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import net.openan.observability.Observability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,6 +80,8 @@ public class WorkflowExecutor {
   private final EventCallback eventCallback;
   private final ContextBuilder contextBuilder;
   private final String lang;
+  private final Observability observability;
+  private volatile WorkflowObservability workflowTelemetry;
   private final String executionId = java.util.UUID.randomUUID().toString();
   private final Map<String, Map<String, Object>> stepOutputs = new ConcurrentHashMap<>();
   private final Map<String, List<TaskExecutionResult>> stepExecutionResults =
@@ -92,6 +96,23 @@ public class WorkflowExecutor {
       EventCallback eventCallback,
       String runtimeIntent,
       String lang) {
+    this(workflow, controlPoint, engineClient, eventCallback, runtimeIntent, lang, null);
+  }
+
+  /**
+   * Creates a workflow executor with optional host-owned workflow observability.
+   *
+   * <p>The supplied API records workflow and step signals only. A2A and A2A-T SDKs retain ownership
+   * of their protocol telemetry.
+   */
+  public WorkflowExecutor(
+      Workflow workflow,
+      ControlPoint controlPoint,
+      WorkflowEngineClient engineClient,
+      EventCallback eventCallback,
+      String runtimeIntent,
+      String lang,
+      Observability observability) {
     // Definitions are mutable for JSON/builder compatibility. Snapshot them so runtime status
     // changes and caller mutations cannot leak between concurrent executions.
     this.workflow = WORKFLOW_SNAPSHOT_MAPPER.convertValue(workflow, Workflow.class);
@@ -100,6 +121,7 @@ public class WorkflowExecutor {
     this.eventCallback = eventCallback != null ? eventCallback : new EventCallback();
     this.contextBuilder = new ContextBuilder(this.workflow, runtimeIntent);
     this.lang = lang != null ? lang : "zh";
+    this.observability = observability;
     log.info(
         "[Executor] Workflow: {}, steps={}, lang={}",
         workflow.getName(),
@@ -558,6 +580,9 @@ public class WorkflowExecutor {
     if (!started.compareAndSet(false, true))
       return CompletableFuture.failedFuture(
           new IllegalStateException("WorkflowExecutor is single-use"));
+    WorkflowObservability runTelemetry = startTelemetry();
+    workflowTelemetry = runTelemetry;
+    AtomicBoolean telemetryFinished = new AtomicBoolean();
     // NOTE: START lifecycle event is emitted by the runner (ExecutePsop),
     // not here. Mirrors Python SDK where the executor emits only
     // step/task/route events and the runner emits start/complete/error/close.
@@ -570,13 +595,15 @@ public class WorkflowExecutor {
     } catch (IllegalArgumentException e) {
       log.error("[Executor] Invalid workflow graph: {}", e.getMessage());
       emit(EventType.ERROR, Map.of("error", e.getMessage()));
-      return CompletableFuture.completedFuture(
+      ExecutionResult result =
           ExecutionResult.builder()
               .success(false)
               .history(new ArrayList<>(executionHistory))
               .stepOutputs(new HashMap<>(stepOutputs))
               .error(e.getMessage())
-              .build());
+              .build();
+      finishTelemetry(runTelemetry, telemetryFinished, false, e);
+      return CompletableFuture.completedFuture(result);
     }
     Deque<Integer> pending = new ConcurrentLinkedDeque<>();
     Set<Integer> scheduled = ConcurrentHashMap.newKeySet();
@@ -613,12 +640,15 @@ public class WorkflowExecutor {
                             .mapToObj(index -> workflow.getSteps().get(index).getName())
                             .toList());
                   }
-                  return ExecutionResult.builder()
-                      .success(!failed.get())
-                      .history(new ArrayList<>(executionHistory))
-                      .stepOutputs(new HashMap<>(stepOutputs))
-                      .error(failed.get() ? "Step execution failed" : null)
-                      .build();
+                  ExecutionResult result =
+                      ExecutionResult.builder()
+                          .success(!failed.get())
+                          .history(new ArrayList<>(executionHistory))
+                          .stepOutputs(new HashMap<>(stepOutputs))
+                          .error(failed.get() ? "Step execution failed" : null)
+                          .build();
+                  finishTelemetry(runTelemetry, telemetryFinished, result.isSuccess(), null);
+                  return result;
                 })
             .exceptionally(
                 e -> {
@@ -626,17 +656,24 @@ public class WorkflowExecutor {
                   String message = failureMessage(failure);
                   log.error("[Executor] DAG traversal error: {}", message, failure);
                   emit(EventType.ERROR, Map.of("error", message));
-                  return ExecutionResult.builder()
-                      .success(false)
-                      .history(new ArrayList<>(executionHistory))
-                      .stepOutputs(new HashMap<>(stepOutputs))
-                      .error(message)
-                      .build();
+                  ExecutionResult result =
+                      ExecutionResult.builder()
+                          .success(false)
+                          .history(new ArrayList<>(executionHistory))
+                          .stepOutputs(new HashMap<>(stepOutputs))
+                          .error(message)
+                          .build();
+                  finishTelemetry(runTelemetry, telemetryFinished, false, failure);
+                  return result;
                 });
     execution.whenComplete(
         (value, error) -> {
           stopped.set(true);
           activeTasks.forEach(task -> task.cancel(true));
+          if (error != null) {
+            finishTelemetry(
+                runTelemetry, telemetryFinished, false, unwrapCompletionException(error));
+          }
         });
     return execution;
   }
@@ -647,6 +684,9 @@ public class WorkflowExecutor {
       Set<Integer> activated,
       Deque<Integer> pending,
       AtomicBoolean failed) {
+    int stepIndex = contextBuilder.findStepIndex(step.getName());
+    WorkflowObservability.StepObservation stepTelemetry = startStepTelemetry(step, stepIndex);
+    AtomicBoolean stepSucceeded = new AtomicBoolean(true);
     emit(EventType.STEP_START, Map.of("step", step.getName()));
     log.info("--- Executing step: {} ---", step.getName());
     return executeSubtasks(step)
@@ -655,6 +695,7 @@ public class WorkflowExecutor {
               stepOutputs.put(step.getName(), result.results());
               stepExecutionResults.put(step.getName(), result.taskResults());
               if (!result.success()) {
+                stepSucceeded.set(false);
                 log.warn(
                     "[Executor] STEP_FAILED executionId={}, step={}, action=stop-downstream",
                     executionId,
@@ -687,7 +728,53 @@ public class WorkflowExecutor {
                           }
                         }
                       });
+            })
+        .whenComplete(
+            (ignored, error) -> {
+              boolean success = error == null && stepSucceeded.get();
+              finishStepTelemetry(stepTelemetry, success, error);
             });
+  }
+
+  private WorkflowObservability startTelemetry() {
+    if (observability == null) return null;
+    try {
+      return new WorkflowObservability(observability, workflow, executionId);
+    } catch (RuntimeException error) {
+      log.warn("Workflow observability start failed", error);
+      return null;
+    }
+  }
+
+  private static void finishTelemetry(
+      WorkflowObservability telemetry, AtomicBoolean finished, boolean success, Throwable error) {
+    if (telemetry == null || !finished.compareAndSet(false, true)) return;
+    try {
+      telemetry.finishWorkflow(success, error);
+    } catch (RuntimeException ignored) {
+      // Telemetry must not change workflow execution outcomes.
+    }
+  }
+
+  private WorkflowObservability.StepObservation startStepTelemetry(
+      WorkflowStep step, int stepIndex) {
+    if (workflowTelemetry == null) return null;
+    try {
+      return workflowTelemetry.startStep(step, stepIndex);
+    } catch (RuntimeException error) {
+      log.warn("Step observability start failed: step={}", step.getName(), error);
+      return null;
+    }
+  }
+
+  private void finishStepTelemetry(
+      WorkflowObservability.StepObservation telemetry, boolean success, Throwable error) {
+    if (telemetry == null || workflowTelemetry == null) return;
+    try {
+      workflowTelemetry.finishStep(telemetry, success, error);
+    } catch (RuntimeException ignored) {
+      // Telemetry must not change workflow execution outcomes.
+    }
   }
 
   private StepResult processTaskResult(

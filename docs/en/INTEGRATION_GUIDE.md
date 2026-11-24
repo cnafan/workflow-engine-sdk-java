@@ -10,6 +10,14 @@ A2A-T telecom extensions.
 The engine schedules A2A tasks, envelopes final content, manages authentication/transport and waits for results. Host
 callbacks own A2A-T generation, semantic validation, schemas and any LLM calls.
 
+### Observability boundary
+
+When the host supplies an OpenAN `Observability` instance, this SDK records only workflow and
+step signals: `a2at.workflow`, `a2at.step.<name>`, the workflow/step metrics, and their lifecycle
+logs. A2A and A2A-T protocol signals remain the responsibility of the respective SDKs, so one
+protocol operation is not exported twice. The host starts and closes `ObservabilitySdk` once for
+the application, then injects `sdk.observe()` into every participating SDK.
+
 ## 2. Prerequisites
 
 | Requirement | Version |
@@ -158,6 +166,36 @@ try {
 } finally {
     if (!execution.isDone()) execution.cancel(true);
 }
+```
+
+The Observability SDK has not yet been published to Maven Central. CI installs its development
+version from the OpenAN source repository before building this project. A consuming application
+must either install the same source revision locally or use the published coordinate once available.
+The host owns the `ObservabilitySdk` lifecycle; the engine receives only `sdk.observe()`.
+The workflow-engine dependency uses the OTLP/gRPC exporter and does not include the HTTP/
+protobuf sender. Keep the default `grpc` protocol (or set `OTEL_EXPORTER_OTLP_PROTOCOL=grpc`).
+
+```java
+try (var observabilitySdk = ObservabilitySdk.start(SdkConfig.builder()
+        .serviceName("workflow-engine-host")
+        .build())) {
+    ExecutionResult result = ExecutePsop.builder()
+            .psop(workflow)
+            .controlPoint(callbacks)
+            .observability(observabilitySdk.observe())
+            .execute()
+            .get(10, TimeUnit.MINUTES);
+}
+```
+
+For Spring Boot applications, set the following configuration and inject
+`WorkflowExecutionFactory`; `factory.builder()` already contains the Observability API.
+
+```yaml
+a2at:
+  observability:
+    enabled: true
+    service-name: workflow-engine-host
 ```
 
 Required: `psop`, `controlPoint`. All other config items have defaults.

@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import net.openan.observability.Observability;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,6 +88,76 @@ public class ExecutePsop {
       EventCallback eventCallback,
       BiFunction<ExecutionResult, List<Map<String, Object>>, CompletableFuture<Void>> onFinish,
       Function<Map<String, Object>, Object> onEvent) {
+    return executeInternal(
+        psop,
+        agentCards,
+        controlPoint,
+        engineClient,
+        runtimeIntent,
+        lang,
+        credentialsConfigPath,
+        sslVerify,
+        caCertsPath,
+        a2aClientRuntime,
+        eventCallback,
+        null,
+        onFinish,
+        onEvent);
+  }
+
+  /**
+   * Executes a workflow with optional host-owned workflow observability.
+   *
+   * <p>The supplied API records workflow and step signals only. It does not enable A2A or A2A-T
+   * protocol telemetry.
+   */
+  public static CompletableFuture<ExecutionResult> execute(
+      Workflow psop,
+      List<AgentCard> agentCards,
+      ControlPoint controlPoint,
+      WorkflowEngineClient engineClient,
+      String runtimeIntent,
+      String lang,
+      String credentialsConfigPath,
+      boolean sslVerify,
+      String caCertsPath,
+      A2AJavaClientRuntime a2aClientRuntime,
+      EventCallback eventCallback,
+      Observability observability,
+      BiFunction<ExecutionResult, List<Map<String, Object>>, CompletableFuture<Void>> onFinish,
+      Function<Map<String, Object>, Object> onEvent) {
+    return executeInternal(
+        psop,
+        agentCards,
+        controlPoint,
+        engineClient,
+        runtimeIntent,
+        lang,
+        credentialsConfigPath,
+        sslVerify,
+        caCertsPath,
+        a2aClientRuntime,
+        eventCallback,
+        observability,
+        onFinish,
+        onEvent);
+  }
+
+  private static CompletableFuture<ExecutionResult> executeInternal(
+      Workflow psop,
+      List<AgentCard> agentCards,
+      ControlPoint controlPoint,
+      WorkflowEngineClient engineClient,
+      String runtimeIntent,
+      String lang,
+      String credentialsConfigPath,
+      boolean sslVerify,
+      String caCertsPath,
+      A2AJavaClientRuntime a2aClientRuntime,
+      EventCallback eventCallback,
+      Observability observability,
+      BiFunction<ExecutionResult, List<Map<String, Object>>, CompletableFuture<Void>> onFinish,
+      Function<Map<String, Object>, Object> onEvent) {
 
     Objects.requireNonNull(psop, "psop");
     Objects.requireNonNull(controlPoint, "controlPoint");
@@ -113,7 +184,8 @@ public class ExecutePsop {
               client,
               collectingCallback,
               runtimeIntent != null ? runtimeIntent : "",
-              lang != null ? lang : "zh");
+              lang != null ? lang : "zh",
+              observability);
       log.info(
           "[execute_psop] Starting: workflow={}, {} steps", psop.getName(), psop.getSteps().size());
       collectingCallback.onEvent(
@@ -416,6 +488,7 @@ public class ExecutePsop {
     private String caCertsPath;
     private A2AJavaClientRuntime a2aClientRuntime;
     private EventCallback eventCallback;
+    private Observability observability;
     private boolean clientConstructionConfigured;
     private BiFunction<ExecutionResult, List<Map<String, Object>>, CompletableFuture<Void>>
         onFinish;
@@ -481,6 +554,12 @@ public class ExecutePsop {
       return this;
     }
 
+    /** Supplies a host-created observability API for workflow and step signals. */
+    public Builder observability(Observability v) {
+      this.observability = v;
+      return this;
+    }
+
     public Builder onFinish(
         BiFunction<ExecutionResult, List<Map<String, Object>>, CompletableFuture<Void>> v) {
       this.onFinish = v;
@@ -522,6 +601,7 @@ public class ExecutePsop {
           caCertsPath,
           a2aClientRuntime,
           eventCallback,
+          observability,
           onFinish,
           onEvent);
     }
