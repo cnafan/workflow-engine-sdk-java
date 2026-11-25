@@ -23,6 +23,15 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
+      - name: Install unpublished Observability SDK
+        uses: actions/checkout@v5
+        with:
+          repository: project-openan/observability-sdk-java
+          path: observability-sdk-java
+
+      - name: Build Observability SDK locally
+        run: mvn -B -f observability-sdk-java/pom.xml -DskipTests install
+
       - name: Build and test core modules
         run: |
           mvn -B clean verify \
@@ -54,6 +63,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
+
+      - name: Install unpublished Observability SDK
+        uses: actions/checkout@v5
+        with:
+          repository: project-openan/observability-sdk-java
+          path: observability-sdk-java
+
+      - name: Build Observability SDK locally
+        run: mvn -B -f observability-sdk-java/pom.xml -DskipTests install
 
       - name: Build and test samples
         run: mvn -B -pl samples -am verify
