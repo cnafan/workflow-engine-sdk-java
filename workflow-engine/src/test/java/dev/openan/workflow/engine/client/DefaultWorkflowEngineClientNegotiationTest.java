@@ -139,6 +139,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
             .build());
   }
 
+  // TC-ENG | publicClientContractExposesOnlyTheTaskOrientedSendName
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void publicClientContractExposesOnlyTheTaskOrientedSendName() {
     Set<String> methodNames =
@@ -149,6 +155,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     assertFalse(methodNames.contains("sendMessage"));
   }
 
+  // TC-ENG | standaloneTaskUsesFreshContextAndConfiguredInteractionLoop
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void standaloneTaskUsesFreshContextAndConfiguredInteractionLoop() throws Exception {
     List<String> contexts = new CopyOnWriteArrayList<>();
@@ -180,6 +192,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     assertNotEquals(contexts.get(0), contexts.get(1));
   }
 
+  // TC-ENG | standaloneTaskAcceptsPerCallNegotiationStrategy
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void standaloneTaskAcceptsPerCallNegotiationStrategy() throws Exception {
     AtomicInteger sends = new AtomicInteger();
@@ -222,6 +240,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | standaloneTaskCancelsRemoteTaskBeforeFailingWhenNegotiationCannotContinue
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void standaloneTaskCancelsRemoteTaskBeforeFailingWhenNegotiationCannotContinue()
       throws Exception {
@@ -267,6 +291,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | lateRemoteIdentityIsCanceledAfterLocalTimeout
+  //
+  // 输入: 超时/中断条件
+  // 预期输出: 超时异常或中断恢复
+  // 断言点: 异常类型 + 中断标志恢复
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void lateRemoteIdentityIsCanceledAfterLocalTimeout() throws Exception {
     CountDownLatch canceled = new CountDownLatch(1);
@@ -312,6 +342,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | standaloneTaskCancelsUnsupportedAuthRequiredTask
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void standaloneTaskCancelsUnsupportedAuthRequiredTask() throws Exception {
     AtomicInteger cancellations = new AtomicInteger();
@@ -357,6 +393,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | standaloneTaskValidatesTaskTExtensionOnlyWhenActivated
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void standaloneTaskValidatesTaskTExtensionOnlyWhenActivated() throws Exception {
     AtomicInteger sends = new AtomicInteger();
@@ -388,6 +430,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | standaloneTaskRejectsNegotiationActivationNotDeclaredByTarget
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void standaloneTaskRejectsNegotiationActivationNotDeclaredByTarget() throws Exception {
     AtomicInteger sends = new AtomicInteger();
@@ -419,6 +467,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | standaloneTaskPreservesStandardA2AErrorWithoutCancelingAnUncreatedTask
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void standaloneTaskPreservesStandardA2AErrorWithoutCancelingAnUncreatedTask() throws Exception {
     AtomicInteger cancellations = new AtomicInteger();
@@ -466,6 +520,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | answersFinalRoundAndKeepsOriginalRemoteAssociation
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void answersFinalRoundAndKeepsOriginalRemoteAssociation() throws Exception {
     List<MessageSendParams> sent = new CopyOnWriteArrayList<>();
@@ -512,6 +572,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     assertEquals(negotiationTask("start"), seen.get().originalSubmission());
   }
 
+  // TC-ENG | terminalStateNeverRestartsOldNegotiation
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void terminalStateNeverRestartsOldNegotiation() throws Exception {
     AtomicInteger callbacks = new AtomicInteger();
@@ -542,6 +608,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     assertEquals(0, callbacks.get());
   }
 
+  // TC-ENG | rejectsWrongContextNewProposeAndMissingCallbackWithoutSendingAgain
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void rejectsWrongContextNewProposeAndMissingCallbackWithoutSendingAgain() throws Exception {
     for (NegotiationReply reply :
@@ -579,6 +651,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | plainInputRequiredIsExplicitlyUnsupported
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void plainInputRequiredIsExplicitlyUnsupported() throws Exception {
     try (var transport =
@@ -601,6 +679,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | tasklessProposeEntersNegotiationAndFollowUpOmitsTaskId
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void tasklessProposeEntersNegotiationAndFollowUpOmitsTaskId() throws Exception {
     List<MessageSendParams> sent = new CopyOnWriteArrayList<>();
@@ -645,6 +729,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     assertEquals(sent.get(0).message().contextId(), sent.get(1).message().contextId());
   }
 
+  // TC-ENG | tasklessRoundLoopAdvancesRoundsAndCompletesWithTaskAnchoredResult
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void tasklessRoundLoopAdvancesRoundsAndCompletesWithTaskAnchoredResult() throws Exception {
     List<MessageSendParams> sent = new CopyOnWriteArrayList<>();
@@ -695,6 +785,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     assertEquals(List.of(0, 1), historySizes);
   }
 
+  // TC-ENG | tasklessProposeWithoutHostActivationFailsLoudly
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void tasklessProposeWithoutHostActivationFailsLoudly() throws Exception {
     AtomicInteger sends = new AtomicInteger();
@@ -720,6 +816,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | tasklessProposeWithMissingNegotiationContextFailsLoudly
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void tasklessProposeWithMissingNegotiationContextFailsLoudly() throws Exception {
     MessageContent malformed =
@@ -743,6 +845,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | duplicateTasklessProposeFailsExplicitlyWithoutRepeatingTheCallback
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void duplicateTasklessProposeFailsExplicitlyWithoutRepeatingTheCallback() throws Exception {
     AtomicInteger negotiations = new AtomicInteger();
@@ -779,6 +887,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | tasklessMessageWithoutNegotiationMetadataRemainsNormalResponse
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void tasklessMessageWithoutNegotiationMetadataRemainsNormalResponse() throws Exception {
     AtomicInteger negotiations = new AtomicInteger();
@@ -805,6 +919,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | abortAcknowledgementIsNotDiagnosisSuccessAndPreservesRemoteState
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void abortAcknowledgementIsNotDiagnosisSuccessAndPreservesRemoteState() throws Exception {
     AtomicInteger sends = new AtomicInteger();
@@ -839,6 +959,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     assertEquals(2, sends.get());
   }
 
+  // TC-ENG | workingAckAndDuplicateProposeAreObservedWithoutRepeatedSubmissionOrCallback
+  //
+  // 输入: 重复/二次提交
+  // 预期输出: 幂等行为：不产生重复副作用
+  // 断言点: 调用次数 + 结果一致性
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void workingAckAndDuplicateProposeAreObservedWithoutRepeatedSubmissionOrCallback()
       throws Exception {
@@ -908,6 +1034,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | canceledOrTimedOutNegotiationNeverSendsLateReply
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void canceledOrTimedOutNegotiationNeverSendsLateReply() throws Exception {
     for (boolean timeout : List.of(false, true)) {
@@ -950,6 +1082,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | closingNonOwningFacadePreventsNewWorkButDoesNotCloseSharedTransport
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void closingNonOwningFacadePreventsNewWorkButDoesNotCloseSharedTransport() throws Exception {
     try (var transport =
@@ -978,6 +1116,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
     }
   }
 
+  // TC-ENG | concurrentTasksKeepInvocationEventCallbacksIsolated
+  //
+  // 输入: 并发/竞争条件
+  // 预期输出: 竞争条件下行为正确，无数据竞争
+  // 断言点: 结果一致性 + 竞态窗口覆盖
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void concurrentTasksKeepInvocationEventCallbacksIsolated() throws Exception {
     CountDownLatch bothStarted = new CountDownLatch(2);
