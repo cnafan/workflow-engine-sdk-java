@@ -26,6 +26,12 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class RegistryClientTest {
+  // TC-ENG | singleCardLookupRejectsAmbiguousNames
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void singleCardLookupRejectsAmbiguousNames() throws Exception {
     var server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -56,6 +62,12 @@ class RegistryClientTest {
     }
   }
 
+  // TC-ENG | rejectsNonPositiveDeadline
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void rejectsNonPositiveDeadline() {
     assertThrows(
@@ -63,6 +75,12 @@ class RegistryClientTest {
         () -> new RegistryClient("http://localhost", true, Duration.ZERO));
   }
 
+  // TC-ENG | deadlineIncludesStalledResponseBody
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void deadlineIncludesStalledResponseBody() throws Exception {
     var server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -95,6 +113,12 @@ class RegistryClientTest {
     }
   }
 
+  // TC-ENG | registrationFailureIsNotReportedAsAResult
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void registrationFailureIsNotReportedAsAResult() throws Exception {
     var server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
