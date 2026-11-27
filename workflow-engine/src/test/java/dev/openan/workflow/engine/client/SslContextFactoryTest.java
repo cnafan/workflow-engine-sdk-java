@@ -31,6 +31,12 @@ class SslContextFactoryTest {
   private static final String HOSTNAME_PROPERTY =
       "jdk.internal.httpclient.disableHostnameVerification";
 
+  // TC-ENG | trustAllContextDoesNotMutateJvmHostnameVerification
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void trustAllContextDoesNotMutateJvmHostnameVerification() {
     String previous = System.getProperty(HOSTNAME_PROPERTY);
@@ -44,12 +50,24 @@ class SslContextFactoryTest {
     }
   }
 
+  // TC-ENG | invalidConfiguredCaFailsClosed
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void invalidConfiguredCaFailsClosed() {
     assertThrows(
         IllegalStateException.class, () -> SslContextFactory.create(true, "missing-ca-file.pem"));
   }
 
+  // TC-ENG | insecureServerVerificationStillLoadsClientIdentity
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void insecureServerVerificationStillLoadsClientIdentity() {
     assertThrows(
@@ -59,6 +77,12 @@ class SslContextFactoryTest {
                 false, null, "missing-client-cert.pem", "missing-client-key.pem", null, null));
   }
 
+  // TC-ENG | runtimeClosesItsOwnedExecutor
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void runtimeClosesItsOwnedExecutor() throws Exception {
     DefaultA2AJavaClientRuntime runtime = new DefaultA2AJavaClientRuntime();
