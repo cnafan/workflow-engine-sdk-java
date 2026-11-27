@@ -28,6 +28,12 @@ import org.junit.jupiter.api.Test;
 /** Tests for Workflow/WorkflowStep/Task/JumpCondition/StepType model parsing. */
 class WorkflowModelTest {
 
+  // TC-ENG | mapLoadingPreservesStructuredBusinessInput
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void mapLoadingPreservesStructuredBusinessInput() {
     Map<String, Object> input = Map.of("data", Map.of("serviceId", "service-42"));
@@ -47,6 +53,12 @@ class WorkflowModelTest {
         workflow.getSteps().get(0).getSubtasks().get(0).getInput());
   }
 
+  // TC-ENG | mapLoadingRejectsAmbiguousBusinessInput
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void mapLoadingRejectsAmbiguousBusinessInput() {
     Map<String, Object> input = Map.of("text", "diagnose", "data", Map.of("id", 42));
@@ -64,6 +76,12 @@ class WorkflowModelTest {
                             List.of(Map.of("agent", "A", "input", input)))))));
   }
 
+  // TC-ENG | parsesLinearWorkflow
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void parsesLinearWorkflow() {
     Map<String, Object> data =
@@ -101,6 +119,12 @@ class WorkflowModelTest {
     assertEquals(1, wf.getSteps().get(1).getLayer());
   }
 
+  // TC-ENG | stepTypeCaseInsensitiveAllSuccess
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void stepTypeCaseInsensitiveAllSuccess() {
     for (String v :
@@ -117,6 +141,12 @@ class WorkflowModelTest {
     }
   }
 
+  // TC-ENG | stepTypeCaseInsensitiveAnySuccess
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void stepTypeCaseInsensitiveAnySuccess() {
     for (String v :
@@ -133,6 +163,12 @@ class WorkflowModelTest {
     }
   }
 
+  // TC-ENG | stepTypeViaTypeFieldFallback
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void stepTypeViaTypeFieldFallback() {
     Map<String, Object> data =
@@ -145,6 +181,12 @@ class WorkflowModelTest {
     assertEquals(StepType.ANY_SUCCESS, wf.getSteps().get(0).getStepType());
   }
 
+  // TC-ENG | stepTypeDefaultsToAllSuccess
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void stepTypeDefaultsToAllSuccess() {
     Map<String, Object> data =
@@ -153,6 +195,12 @@ class WorkflowModelTest {
     assertEquals(StepType.ALL_SUCCESS, wf.getSteps().get(0).getStepType());
   }
 
+  // TC-ENG | unknownStepTypeFailsClearly
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void unknownStepTypeFailsClearly() {
     Map<String, Object> data =
@@ -166,6 +214,12 @@ class WorkflowModelTest {
     assertTrue(error.getMessage().contains("Unknown workflow step type"));
   }
 
+  // TC-ENG | contextFromSingleStringNormalizedToList
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void contextFromSingleStringNormalizedToList() {
     Map<String, Object> data =
@@ -179,6 +233,12 @@ class WorkflowModelTest {
     assertEquals(List.of("prev_step"), wf.getSteps().get(0).getContextFrom());
   }
 
+  // TC-ENG | contextFromListPreserved
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void contextFromListPreserved() {
     java.util.ArrayList<String> sources = new java.util.ArrayList<>(List.of("a", "b"));
@@ -192,6 +252,12 @@ class WorkflowModelTest {
     assertEquals(List.of("a", "b"), wf.getSteps().get(0).getContextFrom());
   }
 
+  // TC-ENG | invalidWorkflowFieldTypesFailClearly
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void invalidWorkflowFieldTypesFailClearly() {
     IllegalArgumentException nameError =
@@ -207,6 +273,12 @@ class WorkflowModelTest {
     assertEquals("steps entries must be objects", stepsError.getMessage());
   }
 
+  // TC-ENG | contextFromStarPreserved
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void contextFromStarPreserved() {
     Map<String, Object> data =
@@ -219,12 +291,24 @@ class WorkflowModelTest {
     assertEquals(List.of("*"), wf.getSteps().get(0).getContextFrom());
   }
 
+  // TC-ENG | taskStatusDefaultsToPending
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void taskStatusDefaultsToPending() {
     Task t = Task.builder().agent("A").description("do").build();
     assertEquals(TaskStatus.PENDING, t.getStatus());
   }
 
+  // TC-ENG | jumpConditionDefaults
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void jumpConditionDefaults() {
     JumpCondition jc = JumpCondition.builder().step("s2").build();
@@ -232,6 +316,12 @@ class WorkflowModelTest {
     assertEquals("", jc.getCondition());
   }
 
+  // TC-ENG | emptyStepsAllowed
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void emptyStepsAllowed() {
     Map<String, Object> data = Map.of("name", "empty", "steps", List.of());

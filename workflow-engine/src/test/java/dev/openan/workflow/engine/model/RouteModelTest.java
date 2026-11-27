@@ -27,6 +27,12 @@ import org.junit.jupiter.api.Test;
 
 class RouteModelTest {
 
+  // TC-ENG | decisionFactoriesExposeAllowedStateAndReason
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void decisionFactoriesExposeAllowedStateAndReason() {
     assertEquals(new RouteDecision(true, ""), RouteDecision.allow());
@@ -36,6 +42,12 @@ class RouteModelTest {
     assertEquals("", new RouteDecision(true, null).reason());
   }
 
+  // TC-ENG | requestRepresentsOneConditionalEdgeAndCopiesResults
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void requestRepresentsOneConditionalEdgeAndCopiesResults() {
     List<TaskExecutionResult> results = new ArrayList<>();
@@ -49,6 +61,12 @@ class RouteModelTest {
     assertEquals(List.of(), request.currentResults());
   }
 
+  // TC-ENG | requestRejectsBlankConditionalEdgeFields
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void requestRejectsBlankConditionalEdgeFields() {
     assertThrows(
