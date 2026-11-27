@@ -27,6 +27,12 @@ import org.junit.jupiter.api.Test;
 
 class AgentAuthManagerTest {
 
+  // TC-ENG | loadsCredentialsFromClasspathLocation
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void loadsCredentialsFromClasspathLocation() throws Exception {
     URL resource = getClass().getClassLoader().getResource("test-agent-credentials.json");
@@ -39,6 +45,12 @@ class AgentAuthManagerTest {
     assertEquals("https://auth.example.test/token", config.get("bearerAuth").get("login_url"));
   }
 
+  // TC-ENG | loadsCredentialsFromClasspathPrefix
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void loadsCredentialsFromClasspathPrefix() {
     AgentAuthManager manager = new AgentAuthManager("classpath:test-agent-credentials.json");
@@ -49,6 +61,12 @@ class AgentAuthManagerTest {
     assertEquals("https://auth.example.test/token", config.get("bearerAuth").get("login_url"));
   }
 
+  // TC-ENG | resolvesSharedProfilesAndPerAgentOverrides
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void resolvesSharedProfilesAndPerAgentOverrides() {
     AgentAuthManager manager = new AgentAuthManager("classpath:test-profile-credentials.json");
@@ -66,6 +84,12 @@ class AgentAuthManagerTest {
         "shared-password", ((java.util.Map<?, ?>) city2.get("request_fields")).get("value"));
   }
 
+  // TC-ENG | missingFileFailsClosed
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void missingFileFailsClosed() {
     assertThrows(
@@ -73,6 +97,12 @@ class AgentAuthManagerTest {
         () -> new AgentAuthManager("/nonexistent/missing-agent-credentials.json"));
   }
 
+  // TC-ENG | missingClasspathResourceFailsClosed
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void missingClasspathResourceFailsClosed() {
     assertThrows(

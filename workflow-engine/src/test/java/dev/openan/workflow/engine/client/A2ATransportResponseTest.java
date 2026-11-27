@@ -80,6 +80,12 @@ class A2ATransportResponseTest {
         .build();
   }
 
+  // TC-ENG | notificationAcknowledgementRequiresANonBlankProtocolState
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void notificationAcknowledgementRequiresANonBlankProtocolState() {
     assertFalse(A2ATransport.isAcknowledgementState(null));
@@ -88,6 +94,12 @@ class A2ATransportResponseTest {
     assertTrue(A2ATransport.isAcknowledgementState("TASK_STATE_WORKING"));
   }
 
+  // TC-ENG | extractsArtifactOnlyOnceAcrossUpdateSnapshotAndTerminalTask
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void extractsArtifactOnlyOnceAcrossUpdateSnapshotAndTerminalTask() {
     Artifact artifact = artifact("result", "diagnosis");
@@ -109,6 +121,12 @@ class A2ATransportResponseTest {
     assertEquals("diagnosis", A2ATransport.extractResponseText(events));
   }
 
+  // TC-ENG | assemblesAppendChunksForEachArtifact
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void assemblesAppendChunksForEachArtifact() {
     Task task = task(TaskState.TASK_STATE_WORKING, List.of());
@@ -120,6 +138,12 @@ class A2ATransportResponseTest {
     assertEquals("part-1+part-2", A2ATransport.extractResponseText(events));
   }
 
+  // TC-ENG | fallsBackToDistinctStatusOrMessageTextWhenNoArtifactExists
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void fallsBackToDistinctStatusOrMessageTextWhenNoArtifactExists() {
     Message concern = message("need parameter");
@@ -142,6 +166,12 @@ class A2ATransportResponseTest {
             List.of(new TaskUpdateEvent(task, update), new MessageEvent(concern))));
   }
 
+  // TC-ENG | mixedStreamingTextAndStructuredDataAreBothRetained
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void mixedStreamingTextAndStructuredDataAreBothRetained() {
     Artifact mixed =

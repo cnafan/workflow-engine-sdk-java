@@ -41,6 +41,12 @@ class ObservedHttpClientTest {
     System.clearProperty("WORKFLOW_ENGINE_PROTOCOL_MAX_BODY_CHARS");
   }
 
+  // TC-ENG | logsActualRequestAndResponseWithoutReencodingOrExposingCredentials
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void logsActualRequestAndResponseWithoutReencodingOrExposingCredentials() throws Exception {
     String body = "{ \"message\": \"任务\", \"password\": \"login-secret\" }";
@@ -113,6 +119,12 @@ class ObservedHttpClientTest {
     }
   }
 
+  // TC-ENG | streamingFramesKeepUtf8ControlLinesAndArriveBeforeCompletion
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void streamingFramesKeepUtf8ControlLinesAndArriveBeforeCompletion() {
     List<String[]> frames = new ArrayList<>();
@@ -129,6 +141,12 @@ class ObservedHttpClientTest {
     assertEquals(2, frames.size());
   }
 
+  // TC-ENG | rawSseCommentRefreshesTransportActivityWithoutNeedingADataEvent
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void rawSseCommentRefreshesTransportActivityWithoutNeedingADataEvent() throws Exception {
     AtomicInteger activities = new AtomicInteger();
@@ -168,6 +186,12 @@ class ObservedHttpClientTest {
     }
   }
 
+  // TC-ENG | oversizedFramesAreExplicitlyDroppedWithoutLeakingPartialSecrets
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void oversizedFramesAreExplicitlyDroppedWithoutLeakingPartialSecrets() {
     System.setProperty("WORKFLOW_ENGINE_PROTOCOL_MAX_BODY_CHARS", "256");
@@ -182,6 +206,12 @@ class ObservedHttpClientTest {
     assertEquals("data: ok\n\n", frames.get(1)[0]);
   }
 
+  // TC-ENG | loggingFailureCannotChangeBodyDeliveryAndBodySwitchIsExplicit
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void loggingFailureCannotChangeBodyDeliveryAndBodySwitchIsExplicit() throws Exception {
     List<WireLog.Entry> entries = new ArrayList<>();
@@ -220,6 +250,12 @@ class ObservedHttpClientTest {
                 Map.of()));
   }
 
+  // TC-ENG | subscriberCancellationIsNotLoggedAsATransportFailure
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void subscriberCancellationIsNotLoggedAsATransportFailure() {
     List<WireLog.Entry> records = new CopyOnWriteArrayList<>();

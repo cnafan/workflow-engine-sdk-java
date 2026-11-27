@@ -37,6 +37,12 @@ class OrchestrationAccountAuthTest {
   private static final LoadPsop.Timeouts TIMEOUTS =
       new LoadPsop.Timeouts(Duration.ofSeconds(2), Duration.ofSeconds(2));
 
+  // TC-ENG | searchAndLoadUseOneLoginWithoutQueryTokensCookiesOrCredentialReuse
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void searchAndLoadUseOneLoginWithoutQueryTokensCookiesOrCredentialReuse() throws Exception {
     try (var service = new Service()) {
@@ -55,6 +61,12 @@ class OrchestrationAccountAuthTest {
     }
   }
 
+  // TC-ENG | advertisedLifetimeRenewsUsingAMonotonicClock
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void advertisedLifetimeRenewsUsingAMonotonicClock() throws Exception {
     try (var service = new Service()) {
@@ -72,6 +84,12 @@ class OrchestrationAccountAuthTest {
     }
   }
 
+  // TC-ENG | concurrentAcquisitionLogsInOnceAndOld401CannotEraseANewerSession
+  //
+  // 输入: 并发/竞争条件
+  // 预期输出: 竞争条件下行为正确，无数据竞争
+  // 断言点: 结果一致性 + 竞态窗口覆盖
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void concurrentAcquisitionLogsInOnceAndOld401CannotEraseANewerSession() throws Exception {
     try (var service = new Service()) {
@@ -96,6 +114,12 @@ class OrchestrationAccountAuthTest {
     }
   }
 
+  // TC-ENG | revokedTokenRetriesSearchOrLoadOnceAndRepeated401Stops
+  //
+  // 输入: 重复/二次提交
+  // 预期输出: 幂等行为：不产生重复副作用
+  // 断言点: 调用次数 + 结果一致性
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void revokedTokenRetriesSearchOrLoadOnceAndRepeated401Stops() throws Exception {
     try (var service = new Service()) {
@@ -141,6 +165,12 @@ class OrchestrationAccountAuthTest {
     }
   }
 
+  // TC-ENG | externalBearerDoesNotOptIntoAutomaticRelogin
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void externalBearerDoesNotOptIntoAutomaticRelogin() throws Exception {
     try (var service = new Service()) {
@@ -206,6 +236,12 @@ class OrchestrationAccountAuthTest {
     }
   }
 
+  // TC-ENG | loginResponseIsBoundedAndCredentialScopeIsEnforcedBeforeNetwork
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void loginResponseIsBoundedAndCredentialScopeIsEnforcedBeforeNetwork() throws Exception {
     try (var service = new Service()) {
@@ -231,6 +267,12 @@ class OrchestrationAccountAuthTest {
     }
   }
 
+  // TC-ENG | loginTimeoutIsBoundedAndDoesNotSendPsopRequest
+  //
+  // 输入: 超时/中断条件
+  // 预期输出: 超时异常或中断恢复
+  // 断言点: 异常类型 + 中断标志恢复
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void loginTimeoutIsBoundedAndDoesNotSendPsopRequest() throws Exception {
     try (var service = new Service()) {

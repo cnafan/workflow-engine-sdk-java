@@ -64,6 +64,12 @@ class ContextBuilderTest {
         Map.of());
   }
 
+  // TC-ENG | layerZeroKeepsRuntimeIntentSeparateFromTaskInstruction
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void layerZeroKeepsRuntimeIntentSeparateFromTaskInstruction() {
     Workflow workflow =
@@ -76,6 +82,12 @@ class ContextBuilderTest {
     assertTrue(context.upstreamResults().isEmpty());
   }
 
+  // TC-ENG | directPredecessorsProvideTypedResults
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void directPredecessorsProvideTypedResults() {
     WorkflowStep s1 = step("s1", 0, List.of("s2"), null);
@@ -94,6 +106,12 @@ class ContextBuilderTest {
         List.of("result-from-A"), context.upstreamResults().get(0).taskResults().get(0).outputs());
   }
 
+  // TC-ENG | contextFromExplicitListOverridesDirectPredecessors
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void contextFromExplicitListOverridesDirectPredecessors() {
     WorkflowStep s1 = step("s1", 0, List.of("s3"), null);
@@ -110,6 +128,12 @@ class ContextBuilderTest {
         List.of("s2"), context.upstreamResults().stream().map(value -> value.stepName()).toList());
   }
 
+  // TC-ENG | contextFromStarIncludesAllAncestors
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void contextFromStarIncludesAllAncestors() {
     WorkflowStep s1 = step("s1", 0, List.of("s2"), null);
@@ -128,6 +152,12 @@ class ContextBuilderTest {
         context.upstreamResults().stream().map(value -> value.stepName()).toList());
   }
 
+  // TC-ENG | explicitEmptyContextFromDisablesUpstreamAggregation
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void explicitEmptyContextFromDisablesUpstreamAggregation() {
     WorkflowStep s1 = step("s1", 0, List.of("s2"), null);
@@ -139,6 +169,12 @@ class ContextBuilderTest {
     assertTrue(context.upstreamResults().isEmpty());
   }
 
+  // TC-ENG | getStepPredecessorsFindsDirectParents
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void getStepPredecessorsFindsDirectParents() {
     WorkflowStep s1 = step("s1", 0, List.of("s3"), null);

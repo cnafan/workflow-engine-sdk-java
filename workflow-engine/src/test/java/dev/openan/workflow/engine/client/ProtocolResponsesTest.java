@@ -58,6 +58,12 @@ class ProtocolResponsesTest {
         .build();
   }
 
+  // TC-ENG | appendDoesNotCountSdkSnapshotTwiceAndReplaceIsAuthoritative
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void appendDoesNotCountSdkSnapshotTwiceAndReplaceIsAuthoritative() {
     Artifact first = artifact("a", "first", Map.of("x", 1));
@@ -99,6 +105,12 @@ class ProtocolResponsesTest {
     assertEquals(Map.of("final", true), completed.artifacts().get(0).metadata());
   }
 
+  // TC-ENG | failureRetainsPartialArtifactButNotErrorTextAsOutput
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void failureRetainsPartialArtifactButNotErrorTextAsOutput() {
     Message error =
@@ -123,6 +135,12 @@ class ProtocolResponsesTest {
     assertEquals("artifact", received.artifacts().get(0).metadata().get("level"));
   }
 
+  // TC-ENG | metadataOnlyAndNestedDataRemainAvailable
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void metadataOnlyAndNestedDataRemainAvailable() {
     var received =
@@ -141,6 +159,12 @@ class ProtocolResponsesTest {
             .outputs());
   }
 
+  // TC-ENG | incrementalDeliveryDoesNotReplayOrRetainPriorStandaloneMessages
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void incrementalDeliveryDoesNotReplayOrRetainPriorStandaloneMessages() {
     ProtocolResponses.Accumulator accumulator = new ProtocolResponses.Accumulator();

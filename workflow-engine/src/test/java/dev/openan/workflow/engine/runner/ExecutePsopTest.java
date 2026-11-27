@@ -54,6 +54,12 @@ import org.junit.jupiter.api.Test;
  */
 class ExecutePsopTest {
 
+  // TC-ENG | cancellationStopsLateTaskPreparationAndClosesLifecycleOnce
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void cancellationStopsLateTaskPreparationAndClosesLifecycleOnce() throws Exception {
     var prepared = new CompletableFuture<MessageContent>();
@@ -97,6 +103,12 @@ class ExecutePsopTest {
     assertEquals(1, closes.get());
   }
 
+  // TC-ENG | cancellationWhileOnFinishIsPendingStillClosesExactlyOnce
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void cancellationWhileOnFinishIsPendingStillClosesExactlyOnce() {
     var finish = new CompletableFuture<Void>();
@@ -121,6 +133,12 @@ class ExecutePsopTest {
     assertEquals(1, closes.get());
   }
 
+  // TC-ENG | cancelledRunnerClosesItsOwnedRuntime
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void cancelledRunnerClosesItsOwnedRuntime() {
     var closes = new AtomicInteger();
@@ -175,6 +193,12 @@ class ExecutePsopTest {
     return Workflow.builder().name("e2e").steps(List.of(s1, s2)).build();
   }
 
+  // TC-ENG | fullLifecycleEventSequence
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void fullLifecycleEventSequence() {
     StubWorkflowEngineClient stub = new StubWorkflowEngineClient("A", "B");
@@ -219,6 +243,12 @@ class ExecutePsopTest {
     assertTrue(startIdx < completeIdx);
   }
 
+  // TC-ENG | onFinishCalledWithResultAndEvents
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void onFinishCalledWithResultAndEvents() {
     StubWorkflowEngineClient stub = new StubWorkflowEngineClient("A", "B");
@@ -251,6 +281,12 @@ class ExecutePsopTest {
     assertTrue(capturedResult.get().isSuccess());
   }
 
+  // TC-ENG | onEventTransformerCanInjectEvents
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void onEventTransformerCanInjectEvents() {
     StubWorkflowEngineClient stub = new StubWorkflowEngineClient("A", "B");
@@ -296,6 +332,12 @@ class ExecutePsopTest {
     assertEquals(stepStartIdx - 1, psopIdx);
   }
 
+  // TC-ENG | onEventTransformerCanFilterEvents
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void onEventTransformerCanFilterEvents() {
     StubWorkflowEngineClient stub = new StubWorkflowEngineClient("A", "B");
@@ -333,6 +375,12 @@ class ExecutePsopTest {
     assertFalse(events.contains(EventType.TASK_REQUEST));
   }
 
+  // TC-ENG | builderProducesSameResultAsStaticExecute
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void builderProducesSameResultAsStaticExecute() {
     StubWorkflowEngineClient stub1 = new StubWorkflowEngineClient("A", "B");
@@ -366,6 +414,12 @@ class ExecutePsopTest {
     assertEquals(stub1.getSentCount(), stub2.getSentCount());
   }
 
+  // TC-ENG | builderRequiresPsop
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void builderRequiresPsop() {
     assertThrows(
@@ -373,6 +427,12 @@ class ExecutePsopTest {
         () -> ExecutePsop.builder().controlPoint(autoCp()).execute());
   }
 
+  // TC-ENG | builderRequiresControlPoint
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void builderRequiresControlPoint() {
     assertThrows(
@@ -380,6 +440,12 @@ class ExecutePsopTest {
         () -> ExecutePsop.builder().psop(linearWorkflow()).execute());
   }
 
+  // TC-ENG | injectedClientRemainsCallerOwnedAfterExecution
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void injectedClientRemainsCallerOwnedAfterExecution() {
     AtomicInteger closeCalls = new AtomicInteger();
@@ -403,6 +469,12 @@ class ExecutePsopTest {
     assertEquals(0, closeCalls.get());
   }
 
+  // TC-ENG | builderRejectsInjectedClientCombinedWithConstructionSettings
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void builderRejectsInjectedClientCombinedWithConstructionSettings() {
     StubWorkflowEngineClient client = new StubWorkflowEngineClient("A", "B");
@@ -419,6 +491,12 @@ class ExecutePsopTest {
     assertTrue(error.getMessage().contains("engineClient cannot be combined"));
   }
 
+  // TC-ENG | errorLifecycleOnTaskFailure
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void errorLifecycleOnTaskFailure() {
     StubWorkflowEngineClient stub = new StubWorkflowEngineClient("A", "B");

@@ -65,6 +65,12 @@ class CredentialHeaderContributorTest {
         header);
   }
 
+  // TC-ENG | triesLaterOrRequirementWhenEarlierAlternativeIsNotConfigured
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void triesLaterOrRequirementWhenEarlierAlternativeIsNotConfigured() throws Exception {
     HttpServer server = tokenServer();
@@ -89,6 +95,12 @@ class CredentialHeaderContributorTest {
     }
   }
 
+  // TC-ENG | satisfiesEverySchemeInAnAndRequirement
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void satisfiesEverySchemeInAnAndRequirement() throws Exception {
     HttpServer server = tokenServer();

@@ -26,6 +26,12 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class WireLogRedactionTest {
+  // TC-ENG | masksUnderscoredCredentialNamesInJsonAndHeaders
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void masksUnderscoredCredentialNamesInJsonAndHeaders() {
     assertEquals(
@@ -36,6 +42,12 @@ class WireLogRedactionTest {
         WireLog.safeHeaders(Map.of("X-Api_Key", List.of("hidden"))).get("X-Api_Key"));
   }
 
+  // TC-ENG | masksAuthorizationValuesInRemoteErrorText
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void masksAuthorizationValuesInRemoteErrorText() {
     assertEquals(
@@ -47,6 +59,12 @@ class WireLogRedactionTest {
         WireLog.redact("{\"detail\":\"Rejected Bearer private-token\"}").contains("private-token"));
   }
 
+  // TC-ENG | largeEscapedContentDoesNotUseRecursiveRegexBacktracking
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void largeEscapedContentDoesNotUseRecursiveRegexBacktracking() {
     String payload =
@@ -54,6 +72,12 @@ class WireLogRedactionTest {
     assertEquals(payload.replace("hidden", "***"), WireLog.redact(payload));
   }
 
+  // TC-ENG | redactsNestedValuesEscapedKeysAndIncompleteSecretsWithoutReserializingOtherFields
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void redactsNestedValuesEscapedKeysAndIncompleteSecretsWithoutReserializingOtherFields() {
     String original =
@@ -67,6 +91,12 @@ class WireLogRedactionTest {
     assertEquals("password=***&ok=1", WireLog.redact("password=hidden&ok=1"));
   }
 
+  // TC-ENG | splitSdkTextChunksDoNotExposeFragmentsOfCredentials
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void splitSdkTextChunksDoNotExposeFragmentsOfCredentials() {
     List<String> observed = new ArrayList<>();
@@ -81,6 +111,12 @@ class WireLogRedactionTest {
     assertEquals(1, observed.size());
   }
 
+  // TC-ENG | extensionUriKeysCarryingBusinessContentAreNotRedacted
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void extensionUriKeysCarryingBusinessContentAreNotRedacted() {
     String payload =

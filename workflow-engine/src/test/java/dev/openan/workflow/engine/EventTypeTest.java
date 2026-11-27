@@ -27,6 +27,12 @@ import org.junit.jupiter.api.Test;
 /** Verifies EventType constants match the Python SDK values. */
 class EventTypeTest {
 
+  // TC-ENG | lifecycleEventsMatchPython
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void lifecycleEventsMatchPython() {
     assertEquals("start", EventType.START);
@@ -35,6 +41,12 @@ class EventTypeTest {
     assertEquals("error", EventType.ERROR);
   }
 
+  // TC-ENG | stepTaskEventsMatchPython
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void stepTaskEventsMatchPython() {
     assertEquals("step_start", EventType.STEP_START);
@@ -46,12 +58,24 @@ class EventTypeTest {
     assertEquals("workflow_complete", EventType.WORKFLOW_COMPLETE);
   }
 
+  // TC-ENG | agentTrafficEventsMatchPython
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void agentTrafficEventsMatchPython() {
     assertEquals("agent_request", EventType.AGENT_REQUEST);
     assertEquals("agent_response", EventType.AGENT_RESPONSE);
   }
 
+  // TC-ENG | intermediateAgentEventsExist
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void intermediateAgentEventsExist() {
     assertEquals("agent_status_update", EventType.AGENT_STATUS_UPDATE);
@@ -59,6 +83,12 @@ class EventTypeTest {
     assertEquals("agent_message_event", EventType.AGENT_MESSAGE_EVENT);
   }
 
+  // TC-ENG | extensionEventsMatchPython
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void extensionEventsMatchPython() {
     assertEquals("negotiation_request", EventType.NEGOTIATION_REQUEST);

@@ -27,6 +27,12 @@ import org.a2aproject.sdk.client.transport.spi.interceptors.ClientCallContext;
 import org.junit.jupiter.api.Test;
 
 class RuntimeChannelSelectionTest {
+  // TC-ENG | channelSelectionUsesExplicitLocalStateRatherThanBusinessMetadata
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void channelSelectionUsesExplicitLocalStateRatherThanBusinessMetadata() {
     ClientCallContext taskContext = new ClientCallContext(new HashMap<>(), new HashMap<>());

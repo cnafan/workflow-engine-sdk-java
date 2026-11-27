@@ -49,6 +49,12 @@ class NotificationStreamTimeoutTest {
     return new DefaultA2AJavaClientRuntime(true, null, 1L, null);
   }
 
+  // TC-ENG | heartbeatsKeepNotificationStreamAliveBeyondSendTimeout
+  //
+  // 输入: 超时/中断条件
+  // 预期输出: 超时异常或中断恢复
+  // 断言点: 异常类型 + 中断标志恢复
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void heartbeatsKeepNotificationStreamAliveBeyondSendTimeout() throws Exception {
     DefaultA2AJavaClientRuntime runtime = runtimeWithOneSecondIdleBudget();
@@ -77,6 +83,12 @@ class NotificationStreamTimeoutTest {
     assertTrue(done.await(0, TimeUnit.MILLISECONDS), "stream should have ended");
   }
 
+  // TC-ENG | silentNotificationStreamIsReapedWithIdleTimeout
+  //
+  // 输入: 超时/中断条件
+  // 预期输出: 超时异常或中断恢复
+  // 断言点: 异常类型 + 中断标志恢复
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void silentNotificationStreamIsReapedWithIdleTimeout() {
     DefaultA2AJavaClientRuntime runtime = runtimeWithOneSecondIdleBudget();
@@ -90,6 +102,12 @@ class NotificationStreamTimeoutTest {
     assertTrue(error.getMessage().contains("idle for 1s"), error.getMessage());
   }
 
+  // TC-ENG | idleDeadlineIsMeasuredFromLastActivity
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void idleDeadlineIsMeasuredFromLastActivity() throws Exception {
     DefaultA2AJavaClientRuntime runtime = runtimeWithOneSecondIdleBudget();
@@ -118,6 +136,12 @@ class NotificationStreamTimeoutTest {
     assertTrue(elapsedMillis < 2_000, "must not wait for a second fixed 1s window");
   }
 
+  // TC-ENG | alreadyIdleStreamTimesOutWithoutAnotherFullWait
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void alreadyIdleStreamTimesOutWithoutAnotherFullWait() {
     DefaultA2AJavaClientRuntime runtime = runtimeWithOneSecondIdleBudget();
@@ -134,6 +158,12 @@ class NotificationStreamTimeoutTest {
         "an already idle stream should not receive a fresh timeout budget");
   }
 
+  // TC-ENG | explicitCloseEndsNotificationStreamImmediately
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void explicitCloseEndsNotificationStreamImmediately() throws Exception {
     DefaultA2AJavaClientRuntime runtime = runtimeWithOneSecondIdleBudget();
@@ -148,6 +178,12 @@ class NotificationStreamTimeoutTest {
         "explicitly closed stream should return immediately");
   }
 
+  // TC-ENG | taskResultStatesDoNotEndAnActiveNotificationStream
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void taskResultStatesDoNotEndAnActiveNotificationStream() {
     CountDownLatch notificationDone = new CountDownLatch(1);

@@ -26,6 +26,12 @@ import org.a2aproject.sdk.spec.*;
 import org.junit.jupiter.api.Test;
 
 class MessageContentTest {
+  // TC-ENG | snapshotsPartsMetadataAndActivationWithoutChangingOrder
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void snapshotsPartsMetadataAndActivationWithoutChangingOrder() {
     List<Object> nested = new ArrayList<>(List.of("city1"));
@@ -56,6 +62,12 @@ class MessageContentTest {
     assertThrows(UnsupportedOperationException.class, () -> content.parts().clear());
   }
 
+  // TC-ENG | snapshotsPrimitiveAndArrayDataWithoutFlattening
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void snapshotsPrimitiveAndArrayDataWithoutFlattening() {
     List<Object> nested = new ArrayList<>(List.of("one", Map.of("value", 2)));
@@ -70,6 +82,12 @@ class MessageContentTest {
         List.of(List.of("one", Map.of("value", 2)), 3, "{not parsed}"), received.outputs());
   }
 
+  // TC-ENG | addsBusinessSelectedExtensionWithoutMutatingOriginalContent
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void addsBusinessSelectedExtensionWithoutMutatingOriginalContent() {
     MessageContent original =
@@ -84,6 +102,12 @@ class MessageContentTest {
     assertThrows(IllegalArgumentException.class, () -> original.withExtension(""));
   }
 
+  // TC-ENG | keepsMetadataOnlyResponseAndAllArtifactFields
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void keepsMetadataOnlyResponseAndAllArtifactFields() {
     List<Object> items = new ArrayList<>(List.of("a"));
@@ -116,6 +140,12 @@ class MessageContentTest {
             .outputs());
   }
 
+  // TC-ENG | preservesFileReferenceAndRejectsUnknownParts
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void preservesFileReferenceAndRejectsUnknownParts() {
     assertInstanceOf(TextPart.class, MessageContent.text("").parts().get(0));

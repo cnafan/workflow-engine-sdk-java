@@ -84,6 +84,12 @@ class LoadPsopHttpsTest {
         System.getProperty("jdk.internal.httpclient.disableHostnameVerification"));
   }
 
+  // TC-ENG | skippingServerVerificationDoesNotBypassMutualTls
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void skippingServerVerificationDoesNotBypassMutualTls() throws Exception {
     try (var endpoint = endpoint(false, true)) {
