@@ -207,6 +207,12 @@ class RemoteA2AErrorFailureTest {
     assertNotNull(((Map<?, ?>) history.get("errorDetails")).get("details"));
   }
 
+  // TC-ENG | knownSecretsAreRedactedAndUnrecognizedProviderErrorsRemainPrivate
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void knownSecretsAreRedactedAndUnrecognizedProviderErrorsRemainPrivate() {
     var remoteError =

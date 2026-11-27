@@ -36,6 +36,12 @@ import org.junit.jupiter.api.Test;
 
 class ProtocolResultAdapterTest {
 
+  // TC-ENG | convertsOrderedTextAndStructuredArtifactsToBusinessOutputs
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void convertsOrderedTextAndStructuredArtifactsToBusinessOutputs() {
     Task task =
@@ -73,6 +79,12 @@ class ProtocolResultAdapterTest {
     assertEquals(List.of("diagnosis", Map.of("alarmCount", 1)), response.getOutputs());
   }
 
+  // TC-ENG | doesNotInventTextFallbackWhenTransportHasNoBusinessContent
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void doesNotInventTextFallbackWhenTransportHasNoBusinessContent() {
     var response =
@@ -85,6 +97,12 @@ class ProtocolResultAdapterTest {
     assertEquals(List.of(), response.getOutputs());
   }
 
+  // TC-ENG | keepsFailedProtocolStateOutOfBusinessOutputs
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void keepsFailedProtocolStateOutOfBusinessOutputs() {
     var response =
@@ -99,6 +117,12 @@ class ProtocolResultAdapterTest {
     assertEquals("Agent returned state=TASK_STATE_FAILED", response.getError());
   }
 
+  // TC-ENG | unknownStateEndingInUnspecifiedIsNotTreatedAsSuccess
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void unknownStateEndingInUnspecifiedIsNotTreatedAsSuccess() {
     var response =
@@ -117,6 +141,12 @@ class ProtocolResultAdapterTest {
     assertEquals("Agent returned state=VENDOR_UNSPECIFIED", response.getError());
   }
 
+  // TC-ENG | failedStatusIsRetainedAsEvidenceButOnlyArtifactsBecomePartialOutputs
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void failedStatusIsRetainedAsEvidenceButOnlyArtifactsBecomePartialOutputs() {
     var status = dev.openan.workflow.engine.model.MessageContent.text("error: remote rejected");
