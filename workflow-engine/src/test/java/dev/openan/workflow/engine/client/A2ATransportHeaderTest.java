@@ -121,6 +121,12 @@ class A2ATransportHeaderTest {
         .readValue(json, AgentCard.class);
   }
 
+  // TC-ENG | forwardsAuthorizationAndActiveExtensionHeadersToRuntime
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void forwardsAuthorizationAndActiveExtensionHeadersToRuntime() throws Exception {
     AtomicReference<Map<String, String>> capturedHeaders = new AtomicReference<>();
@@ -148,6 +154,12 @@ class A2ATransportHeaderTest {
     assertEquals(TASK_T_URI, capturedHeaders.get().get("A2A-Extensions"));
   }
 
+  // TC-ENG | forwardsBusinessSelectedNegotiationActivationWithoutNegotiationMetadata
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void forwardsBusinessSelectedNegotiationActivationWithoutNegotiationMetadata() throws Exception {
     AtomicReference<Map<String, String>> capturedHeaders = new AtomicReference<>();
@@ -168,6 +180,12 @@ class A2ATransportHeaderTest {
     assertEquals(TASK_T_URI + "," + NEGOTIATION_T_URI, capturedHeaders.get().get("A2A-Extensions"));
   }
 
+  // TC-ENG | notificationTransportFailureIsNotReportedAsSubscriptionSuccess
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void notificationTransportFailureIsNotReportedAsSubscriptionSuccess() throws Exception {
     AgentCard card = agentCard();
@@ -206,6 +224,12 @@ class A2ATransportHeaderTest {
     }
   }
 
+  // TC-ENG | agentCardSecurityRequirementWithoutCredentialsFailsClosed
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void agentCardSecurityRequirementWithoutCredentialsFailsClosed() throws Exception {
     AgentCard card = securedAgentCard();
@@ -239,6 +263,12 @@ class A2ATransportHeaderTest {
     }
   }
 
+  // TC-ENG | authProviderCanSatisfySecurityRequirementWithoutCredentials
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void authProviderCanSatisfySecurityRequirementWithoutCredentials() throws Exception {
     AtomicReference<Map<String, String>> capturedHeaders = new AtomicReference<>();
@@ -258,6 +288,12 @@ class A2ATransportHeaderTest {
     assertEquals("Bearer gateway-token", capturedHeaders.get().get("Authorization"));
   }
 
+  // TC-ENG | listTasksUsesTheSameAuthenticatedTransportBoundary
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void listTasksUsesTheSameAuthenticatedTransportBoundary() throws Exception {
     AtomicReference<Map<String, String>> capturedHeaders = new AtomicReference<>();
@@ -288,6 +324,12 @@ class A2ATransportHeaderTest {
     assertEquals("Bearer cleanup-token", capturedHeaders.get().get("Authorization"));
   }
 
+  // TC-ENG | authenticationHeaderConflictsAreCaseInsensitive
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void authenticationHeaderConflictsAreCaseInsensitive() {
     Map<String, String> headers = new HashMap<>();
@@ -305,6 +347,12 @@ class A2ATransportHeaderTest {
     assertEquals(1, headers.size());
   }
 
+  // TC-ENG | closeWaitsUntilNotificationTransportCallHasExited
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void closeWaitsUntilNotificationTransportCallHasExited() throws Exception {
     AgentCard card = agentCard();
@@ -345,6 +393,12 @@ class A2ATransportHeaderTest {
     assertTrue(exited.get(), "close must wait for the notification call to terminate");
   }
 
+  // TC-ENG | failedNotificationCallReleasesConversation
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void failedNotificationCallReleasesConversation() throws Exception {
     AgentCard card = agentCard();
@@ -384,6 +438,12 @@ class A2ATransportHeaderTest {
     }
   }
 
+  // TC-ENG | borrowedClientDoesNotCloseCallerOwnedTransport
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void borrowedClientDoesNotCloseCallerOwnedTransport() throws Exception {
     AtomicInteger closeCalls = new AtomicInteger();
@@ -402,6 +462,12 @@ class A2ATransportHeaderTest {
     assertEquals(1, closeCalls.get());
   }
 
+  // TC-ENG | owningClientClosesTransportExactlyOnce
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void owningClientClosesTransportExactlyOnce() throws Exception {
     AtomicInteger closeCalls = new AtomicInteger();
@@ -418,6 +484,12 @@ class A2ATransportHeaderTest {
     assertEquals(1, closeCalls.get());
   }
 
+  // TC-ENG | finalStructuredContentNeedsNoContentSdk
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void finalStructuredContentNeedsNoContentSdk() throws Exception {
     AtomicReference<MessageSendParams> captured = new AtomicReference<>();
