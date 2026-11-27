@@ -38,6 +38,12 @@ import org.junit.jupiter.api.Test;
 
 class AgentCredentialServiceTest {
 
+  // TC-ENG | formLoginEncodesKeysAndValuesAsUtf8
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void formLoginEncodesKeysAndValuesAsUtf8() throws Exception {
     AtomicReference<String> requestBody = new AtomicReference<>();
@@ -73,6 +79,12 @@ class AgentCredentialServiceTest {
     }
   }
 
+  // TC-ENG | concurrentCacheMissesShareOneLogin
+  //
+  // 输入: 并发/竞争条件
+  // 预期输出: 竞争条件下行为正确，无数据竞争
+  // 断言点: 结果一致性 + 竞态窗口覆盖
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void concurrentCacheMissesShareOneLogin() throws Exception {
     AtomicInteger logins = new AtomicInteger();
@@ -125,6 +137,12 @@ class AgentCredentialServiceTest {
     }
   }
 
+  // TC-ENG | configuredTokenFieldDoesNotSilentlyFallbackToAnotherResponseField
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void configuredTokenFieldDoesNotSilentlyFallbackToAnotherResponseField() throws Exception {
     HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);

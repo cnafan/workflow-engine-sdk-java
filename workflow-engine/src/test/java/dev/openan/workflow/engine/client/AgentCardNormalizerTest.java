@@ -32,6 +32,12 @@ import org.junit.jupiter.api.Test;
 /** Tests for AgentCardNormalizer: OpenAPI -> structured format conversion. */
 class AgentCardNormalizerTest {
 
+  // TC-ENG | normalizeNoOpWhenAlreadyStructured
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void normalizeNoOpWhenAlreadyStructured() {
     Map<String, Object> card =
@@ -47,6 +53,12 @@ class AgentCardNormalizerTest {
     assertNotNull(schemes.get("bearerAuth"));
   }
 
+  // TC-ENG | convertsOpenApiBearerScheme
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   @SuppressWarnings("unchecked")
   void convertsOpenApiBearerScheme() {
@@ -65,6 +77,12 @@ class AgentCardNormalizerTest {
     assertEquals("Bearer auth", httpAuth.get("description"));
   }
 
+  // TC-ENG | convertsOpenApiApiKeyScheme
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   @SuppressWarnings("unchecked")
   void convertsOpenApiApiKeyScheme() {
@@ -83,6 +101,12 @@ class AgentCardNormalizerTest {
     assertEquals("X-API-Key", apiKey.get("name"));
   }
 
+  // TC-ENG | normalizedApiKeySchemeDeserializesWithItsLocation
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   @SuppressWarnings("unchecked")
   void normalizedApiKeySchemeDeserializesWithItsLocation() {
@@ -102,6 +126,12 @@ class AgentCardNormalizerTest {
     assertEquals("X-API-Key", apiKey.name());
   }
 
+  // TC-ENG | securityRequirementScopesSurviveDeserialization
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void securityRequirementScopesSurviveDeserialization() {
     SecurityRequirement requirement =
@@ -114,6 +144,12 @@ class AgentCardNormalizerTest {
     assertEquals(List.of("tasks:read", "tasks:write"), requirement.schemes().get("oauth"));
   }
 
+  // TC-ENG | doesNotInventSecurityRequirementsFromSupportedSchemes
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void doesNotInventSecurityRequirementsFromSupportedSchemes() {
     Map<String, Object> card =
@@ -126,6 +162,12 @@ class AgentCardNormalizerTest {
     assertFalse(result.containsKey("securityRequirements"));
   }
 
+  // TC-ENG | preservesExplicitlyEmptySecurityRequirements
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void preservesExplicitlyEmptySecurityRequirements() {
     Map<String, Object> card =
@@ -141,6 +183,12 @@ class AgentCardNormalizerTest {
     assertEquals(List.of(), result.get("securityRequirements"));
   }
 
+  // TC-ENG | normalizesListStyleSecurityRequirements
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   @SuppressWarnings("unchecked")
   void normalizesListStyleSecurityRequirements() {
@@ -156,12 +204,24 @@ class AgentCardNormalizerTest {
     assertNotNull(schemesMap.get("bearerAuth"));
   }
 
+  // TC-ENG | normalizeReturnsInputWhenNotMap
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void normalizeReturnsInputWhenNotMap() {
     Object result = AgentCardNormalizer.normalize(null);
     assertNull(result);
   }
 
+  // TC-ENG | preservesNameAndCapabilities
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void preservesNameAndCapabilities() {
     Map<String, Object> card =
