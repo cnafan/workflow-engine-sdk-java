@@ -32,6 +32,12 @@ import org.a2aproject.sdk.client.http.ServerSentEvent;
 import org.junit.jupiter.api.Test;
 
 class A2AErrorDetectingHttpClientTest {
+  // TC-ENG | standardErrorCancelsUpstreamAndSurvivesAThrowingErrorObserver
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void standardErrorCancelsUpstreamAndSurvivesAThrowingErrorObserver() throws Exception {
     var upstream = new CompletableFuture<Void>();
@@ -68,6 +74,12 @@ class A2AErrorDetectingHttpClientTest {
     assertEquals(0, completions.get());
   }
 
+  // TC-ENG | cancellationPropagatesAndLateEventsCannotCompleteTheCall
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void cancellationPropagatesAndLateEventsCannotCompleteTheCall() throws Exception {
     var upstream = new CompletableFuture<Void>();
@@ -93,6 +105,12 @@ class A2AErrorDetectingHttpClientTest {
     assertEquals(0, callbacks.get());
   }
 
+  // TC-ENG | successfulDataIsNotRewrittenOrMistakenForANestedError
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void successfulDataIsNotRewrittenOrMistakenForANestedError() throws Exception {
     String data =
@@ -117,6 +135,12 @@ class A2AErrorDetectingHttpClientTest {
     assertEquals(1, completions.get());
   }
 
+  // TC-ENG | streamThatCompletesWithoutAnA2AEventFailsImmediately
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void streamThatCompletesWithoutAnA2AEventFailsImmediately() throws Exception {
     var failures = new AtomicReference<Throwable>();
