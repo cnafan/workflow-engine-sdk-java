@@ -32,6 +32,12 @@ import org.junit.jupiter.api.Test;
  */
 class LoadPsopSearchTest {
 
+  // TC-ENG | rejectsInvalidCustomTimeouts
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void rejectsInvalidCustomTimeouts() {
     assertThrows(
@@ -45,6 +51,12 @@ class LoadPsopSearchTest {
         () -> new LoadPsop.Timeouts(Duration.ofNanos(1), Duration.ofSeconds(1)));
   }
 
+  // TC-ENG | customReadTimeoutIsApplied
+  //
+  // 输入: 超时/中断条件
+  // 预期输出: 超时异常或中断恢复
+  // 断言点: 异常类型 + 中断标志恢复
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void customReadTimeoutIsApplied() throws Exception {
     com.sun.net.httpserver.HttpServer server =
@@ -87,6 +99,12 @@ class LoadPsopSearchTest {
    *
    * <p>Uses Java's built-in HttpServer to mock the endpoint, so no external dependency is needed.
    */
+  // TC-ENG | searchParsesResultsFromMockServer
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void searchParsesResultsFromMockServer() throws Exception {
     // Start a mock HTTP server returning a canned search response
@@ -131,6 +149,12 @@ class LoadPsopSearchTest {
     }
   }
 
+  // TC-ENG | searchEmptyResultsFromMockServer
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void searchEmptyResultsFromMockServer() throws Exception {
     com.sun.net.httpserver.HttpServer server =
@@ -158,6 +182,12 @@ class LoadPsopSearchTest {
     }
   }
 
+  // TC-ENG | searchThrowsOnServerError
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void searchThrowsOnServerError() {
     com.sun.net.httpserver.HttpServer server;

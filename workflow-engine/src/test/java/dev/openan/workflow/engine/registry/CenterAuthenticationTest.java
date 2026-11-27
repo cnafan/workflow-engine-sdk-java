@@ -33,6 +33,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class CenterAuthenticationTest {
+  // TC-ENG | allManagementOperationsUseCurrentBearerWithoutQueryTokens
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void allManagementOperationsUseCurrentBearerWithoutQueryTokens() throws Exception {
     var expected = new AtomicReference<>("first.token");
@@ -101,6 +107,12 @@ class CenterAuthenticationTest {
     }
   }
 
+  // TC-ENG | customHeadersAreInjectedOnLoadAndRegistryRequests
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void customHeadersAreInjectedOnLoadAndRegistryRequests() throws Exception {
     var received = new ArrayList<String>();
@@ -124,6 +136,12 @@ class CenterAuthenticationTest {
     }
   }
 
+  // TC-ENG | missingOrUnsafeCredentialsFailClosedWithoutPrintingValues
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void missingOrUnsafeCredentialsFailClosedWithoutPrintingValues() {
     for (String token : List.of("", " ", " secret", "secret\r\nInjected: value")) {
@@ -159,6 +177,12 @@ class CenterAuthenticationTest {
     }
   }
 
+  // TC-ENG | managementClientsNeverForwardCredentialsThroughRedirects
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void managementClientsNeverForwardCredentialsThroughRedirects() throws Exception {
     var forwarded = new AtomicInteger();
@@ -201,6 +225,12 @@ class CenterAuthenticationTest {
     }
   }
 
+  // TC-ENG | failureMessagesDoNotExposeEchoedCredentials
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void failureMessagesDoNotExposeEchoedCredentials() {
     Map<String, String> auth = Map.of("Authorization", "Bearer private.token");
@@ -215,6 +245,12 @@ class CenterAuthenticationTest {
     }
   }
 
+  // TC-ENG | providerAndMalformedUrlFailuresDoNotRetainCredentialBearingCauses
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void providerAndMalformedUrlFailuresDoNotRetainCredentialBearingCauses() {
     String secret = "SyntheticProviderCredential123";

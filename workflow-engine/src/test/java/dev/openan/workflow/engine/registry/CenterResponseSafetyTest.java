@@ -88,6 +88,12 @@ class CenterResponseSafetyTest {
     }
   }
 
+  // TC-ENG | validBusinessPayloadIsNotRedactedBeforeParsing
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void validBusinessPayloadIsNotRedactedBeforeParsing() throws Exception {
     var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
