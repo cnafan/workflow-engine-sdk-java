@@ -53,6 +53,12 @@ class ExtensionSenderTest {
         List.of(new TextPart("instruction")));
   }
 
+  // TC-ENG | sendsFinalAuthorizationWithoutGeneratingOrSharingContext
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void sendsFinalAuthorizationWithoutGeneratingOrSharingContext() throws Exception {
     List<String> contexts = new CopyOnWriteArrayList<>();
@@ -80,6 +86,12 @@ class ExtensionSenderTest {
     }
   }
 
+  // TC-ENG | earlyEventCanCloseHandleAndCompletionWaitsForActualExit
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void earlyEventCanCloseHandleAndCompletionWaitsForActualExit() throws Exception {
     CountDownLatch callbackRan = new CountDownLatch(1);
@@ -133,6 +145,12 @@ class ExtensionSenderTest {
     }
   }
 
+  // TC-ENG | closeHonorsExplicitTransportOwnership
+  //
+  // 输入: 关闭/销毁操作
+  // 预期输出: 资源释放，后续调用被拒绝或安全忽略
+  // 断言点: 关闭标志 + 后续行为
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void closeHonorsExplicitTransportOwnership() throws Exception {
     AtomicInteger owningCloses = new AtomicInteger();
