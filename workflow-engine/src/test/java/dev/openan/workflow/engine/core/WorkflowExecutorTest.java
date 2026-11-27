@@ -92,6 +92,12 @@ class WorkflowExecutorTest {
     return JumpCondition.builder().step(step).condition(cond).build();
   }
 
+  // TC-ENG | mergeWaitsForActiveAncestorsBeforeItsDirectPredecessorIsActivated
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void mergeWaitsForActiveAncestorsBeforeItsDirectPredecessorIsActivated() {
     List<String> mergeSources = new ArrayList<>();
@@ -143,6 +149,12 @@ class WorkflowExecutorTest {
     assertEquals(5, result.getHistory().size());
   }
 
+  // TC-ENG | cancellationPropagatesToPendingLocalCallback
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void cancellationPropagatesToPendingLocalCallback() throws Exception {
     CompletableFuture<TaskResult> local = new CompletableFuture<>();
@@ -177,6 +189,12 @@ class WorkflowExecutorTest {
         java.util.concurrent.CancellationException.class, () -> local.get(3, TimeUnit.SECONDS));
   }
 
+  // TC-ENG | cancellationPropagatesToPendingRouteCallback
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void cancellationPropagatesToPendingRouteCallback() throws Exception {
     CompletableFuture<RouteDecision> route = new CompletableFuture<>();
@@ -220,6 +238,12 @@ class WorkflowExecutorTest {
     };
   }
 
+  // TC-ENG | constructorDoesNotMutateClientCallbacks
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void constructorDoesNotMutateClientCallbacks() {
     Workflow workflow =
@@ -248,6 +272,12 @@ class WorkflowExecutorTest {
     assertTrue(executor.run().join().isSuccess());
   }
 
+  // TC-ENG | linearWorkflowTwoSteps
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void linearWorkflowTwoSteps() {
     WorkflowStep s1 =
@@ -274,6 +304,12 @@ class WorkflowExecutorTest {
     assertFalse(events.contains(EventType.COMPLETE));
   }
 
+  // TC-ENG | parallelFanOutAllUnconditionalNext
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void parallelFanOutAllUnconditionalNext() {
     // s1 -> s2 (unconditional) and s3 (unconditional)
@@ -302,6 +338,12 @@ class WorkflowExecutorTest {
     assertEquals(Set.of("A", "B", "C"), agents);
   }
 
+  // TC-ENG | parallelBranchesScheduleSharedMergeExactlyOnce
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void parallelBranchesScheduleSharedMergeExactlyOnce() {
     WorkflowStep city1 =
@@ -390,6 +432,12 @@ class WorkflowExecutorTest {
     }
   }
 
+  // TC-ENG | conditionalRouteOnRouteCalled
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void conditionalRouteOnRouteCalled() {
     WorkflowStep s1 =
@@ -430,6 +478,12 @@ class WorkflowExecutorTest {
     assertEquals("C", stub.getSentMessages().get(1).agentName);
   }
 
+  // TC-ENG | mixedOutgoingEdgesRunUnconditionalAndAllowedConditionalTargets
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void mixedOutgoingEdgesRunUnconditionalAndAllowedConditionalTargets() {
     WorkflowStep start =
@@ -524,6 +578,12 @@ class WorkflowExecutorTest {
             .collect(java.util.stream.Collectors.toSet()));
   }
 
+  // TC-ENG | whitespaceOnlyConditionIsUnconditional
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void whitespaceOnlyConditionIsUnconditional() {
     WorkflowStep start =
@@ -557,6 +617,12 @@ class WorkflowExecutorTest {
     assertEquals(2, result.getHistory().size());
   }
 
+  // TC-ENG | conditionalEdgesAreEvaluatedConcurrently
+  //
+  // 输入: 并发/竞争条件
+  // 预期输出: 竞争条件下行为正确，无数据竞争
+  // 断言点: 结果一致性 + 竞态窗口覆盖
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void conditionalEdgesAreEvaluatedConcurrently() {
     WorkflowStep start =
@@ -608,6 +674,12 @@ class WorkflowExecutorTest {
     }
   }
 
+  // TC-ENG | routeFailurePreventsUnconditionalAndAllowedTargetsFromStarting
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void routeFailurePreventsUnconditionalAndAllowedTargetsFromStarting() {
     WorkflowStep start =
@@ -662,6 +734,12 @@ class WorkflowExecutorTest {
         List.of("A"), client.getSentMessages().stream().map(message -> message.agentName).toList());
   }
 
+  // TC-ENG | conditionalRouteMayDenyEveryEdge
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void conditionalRouteMayDenyEveryEdge() {
     WorkflowStep s1 =
@@ -694,6 +772,12 @@ class WorkflowExecutorTest {
     assertEquals(1, stub.getSentCount());
   }
 
+  // TC-ENG | onRouteNullDecisionFailsWithActionableMessage
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void onRouteNullDecisionFailsWithActionableMessage() {
     WorkflowStep s1 =
@@ -734,6 +818,12 @@ class WorkflowExecutorTest {
     assertTrue(result.getError().contains("s1 -> s2"));
   }
 
+  // TC-ENG | onRouteNullFutureFailsAfterInvokingEveryConditionalEdge
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void onRouteNullFutureFailsAfterInvokingEveryConditionalEdge() {
     WorkflowStep start =
@@ -787,6 +877,12 @@ class WorkflowExecutorTest {
     assertEquals(List.of("A"), client.getSentMessages().stream().map(m -> m.agentName).toList());
   }
 
+  // TC-ENG | synchronousRouteExceptionFailsAfterInvokingEveryConditionalEdge
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void synchronousRouteExceptionFailsAfterInvokingEveryConditionalEdge() {
     WorkflowStep start =
@@ -838,6 +934,12 @@ class WorkflowExecutorTest {
     assertEquals(List.of("A"), client.getSentMessages().stream().map(m -> m.agentName).toList());
   }
 
+  // TC-ENG | onRouteTimeoutIdentifiesTheConditionalEdge
+  //
+  // 输入: 超时/中断条件
+  // 预期输出: 超时异常或中断恢复
+  // 断言点: 异常类型 + 中断标志恢复
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void onRouteTimeoutIdentifiesTheConditionalEdge() throws Exception {
     WorkflowStep start =
@@ -881,6 +983,12 @@ class WorkflowExecutorTest {
     assertEquals(List.of("A"), client.getSentMessages().stream().map(m -> m.agentName).toList());
   }
 
+  // TC-ENG | taskFailurePropagatesAndStopsWorkflow
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void taskFailurePropagatesAndStopsWorkflow() {
     WorkflowStep s1 =
@@ -920,6 +1028,12 @@ class WorkflowExecutorTest {
     assertTrue(events.contains(EventType.ERROR));
   }
 
+  // TC-ENG | anySuccessReturnsOnFirstSuccess
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void anySuccessReturnsOnFirstSuccess() {
     // s1 has 3 subtasks, ANY_SUCCESS: first success cancels the rest.
@@ -944,6 +1058,12 @@ class WorkflowExecutorTest {
     assertTrue(stub.getSentCount() >= 1);
   }
 
+  // TC-ENG | anySuccessAllFailReturnsFailure
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void anySuccessAllFailReturnsFailure() {
     Task t1 = task("A", "do A");
@@ -976,6 +1096,12 @@ class WorkflowExecutorTest {
     assertFalse(result.isSuccess());
   }
 
+  // TC-ENG | eventSequenceForLinearWorkflow
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void eventSequenceForLinearWorkflow() {
     WorkflowStep s1 =
@@ -1007,6 +1133,12 @@ class WorkflowExecutorTest {
     assertFalse(events.contains(EventType.START), "Executor must not emit START (runner's job)");
   }
 
+  // TC-ENG | runtimeIntentPassedToContext
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void runtimeIntentPassedToContext() {
     WorkflowStep s1 =
@@ -1041,6 +1173,12 @@ class WorkflowExecutorTest {
     assertTrue(requests.get(0).getWorkflowInput().upstreamResults().isEmpty());
   }
 
+  // TC-ENG | noSubtasksStepSucceeds
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void noSubtasksStepSucceeds() {
     WorkflowStep s1 =
@@ -1053,6 +1191,12 @@ class WorkflowExecutorTest {
     assertEquals(0, stub.getSentCount());
   }
 
+  // TC-ENG | missingStaticRouteTargetFailsBeforeExecution
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void missingStaticRouteTargetFailsBeforeExecution() {
     WorkflowStep step =
@@ -1078,6 +1222,12 @@ class WorkflowExecutorTest {
     assertEquals(0, stub.getSentCount());
   }
 
+  // TC-ENG | duplicateOutgoingTargetFailsBeforeExecution
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void duplicateOutgoingTargetFailsBeforeExecution() {
     WorkflowStep start =
@@ -1106,6 +1256,12 @@ class WorkflowExecutorTest {
     assertEquals(0, client.getSentCount());
   }
 
+  // TC-ENG | nullOutgoingEdgeFailsBeforeExecution
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void nullOutgoingEdgeFailsBeforeExecution() {
     WorkflowStep start =
@@ -1132,6 +1288,12 @@ class WorkflowExecutorTest {
     assertEquals(0, client.getSentCount());
   }
 
+  // TC-ENG | blankOutgoingTargetFailsBeforeExecution
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void blankOutgoingTargetFailsBeforeExecution() {
     WorkflowStep start =
@@ -1158,6 +1320,12 @@ class WorkflowExecutorTest {
     assertEquals(0, client.getSentCount());
   }
 
+  // TC-ENG | cyclicWorkflowFailsBeforeExecution
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void cyclicWorkflowFailsBeforeExecution() {
     WorkflowStep first =
@@ -1188,6 +1356,12 @@ class WorkflowExecutorTest {
     assertEquals(0, stub.getSentCount());
   }
 
+  // TC-ENG | reservedTerminalRouteCannotAlsoBeAWorkflowStep
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void reservedTerminalRouteCannotAlsoBeAWorkflowStep() {
     Workflow workflow =
@@ -1207,6 +1381,12 @@ class WorkflowExecutorTest {
     assertEquals(0, stub.getSentCount());
   }
 
+  // TC-ENG | mergeDoesNotWaitForUnselectedConditionalBranch
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void mergeDoesNotWaitForUnselectedConditionalBranch() {
     WorkflowStep start =
@@ -1267,6 +1447,12 @@ class WorkflowExecutorTest {
         stub.getSentMessages().stream().map(message -> message.agentName).toList());
   }
 
+  // TC-ENG | selfLoopStepCallsOnSelfTaskNotOnTask
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void selfLoopStepCallsOnSelfTaskNotOnTask() {
     // A SELF_LOOP step must dispatch via onSelfTask (local callback),
@@ -1338,6 +1524,12 @@ class WorkflowExecutorTest {
     assertTrue(events.contains(EventType.TASK_RESPONSE));
   }
 
+  // TC-ENG | repeatedDescriptionsInParallelStepDoNotOverwriteResults
+  //
+  // 输入: 重复/二次提交
+  // 预期输出: 幂等行为：不产生重复副作用
+  // 断言点: 调用次数 + 结果一致性
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void repeatedDescriptionsInParallelStepDoNotOverwriteResults() {
     WorkflowStep parallel =
@@ -1386,6 +1578,12 @@ class WorkflowExecutorTest {
             .toList());
   }
 
+  // TC-ENG | nullTaskOutputAndNullExceptionMessageAreNormalized
+  //
+  // 输入: 空值/空白输入
+  // 预期输出: 抛出对应异常或返回空结果
+  // 断言点: 异常类型 + 消息关键字 或 空结果
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void nullTaskOutputAndNullExceptionMessageAreNormalized() {
     WorkflowStep step =
@@ -1445,6 +1643,12 @@ class WorkflowExecutorTest {
     assertFalse(String.valueOf(failure.getHistory().get(0).get("output")).isBlank());
   }
 
+  // TC-ENG | canceledAndTimedOutPreparationCannotSubmitLateContent
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void canceledAndTimedOutPreparationCannotSubmitLateContent() throws Exception {
     for (boolean timeout : List.of(false, true)) {
@@ -1484,6 +1688,12 @@ class WorkflowExecutorTest {
     }
   }
 
+  // TC-ENG | workflowNegotiationKeepsTheOriginalTaskRequestBehindThePublicTaskApi
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void workflowNegotiationKeepsTheOriginalTaskRequestBehindThePublicTaskApi() {
     java.util.concurrent.atomic.AtomicReference<TaskRequest> prepared =
