@@ -30,6 +30,12 @@ import org.junit.jupiter.api.Test;
 
 class NotificationSubscriptionTest {
 
+  // TC-ENG | eventsRefreshHeartbeatAndExplicitCloseIsIdempotent
+  //
+  // 输入: 重复/二次提交
+  // 预期输出: 幂等行为：不产生重复副作用
+  // 断言点: 调用次数 + 结果一致性
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void eventsRefreshHeartbeatAndExplicitCloseIsIdempotent() {
     AtomicInteger closes = new AtomicInteger();
@@ -65,6 +71,12 @@ class NotificationSubscriptionTest {
     assertEquals("ack", subscription.acknowledgement().join().getText());
   }
 
+  // TC-ENG | closingBeforeAcknowledgementNeverLeavesCallerWaiting
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void closingBeforeAcknowledgementNeverLeavesCallerWaiting() {
     NotificationSubscription subscription =
