@@ -57,6 +57,12 @@ class RemoteA2AErrorResponseTest {
         + "\"metadata\":{\"taskId\":\"task-123\"}}]}}";
   }
 
+  // TC-ENG | preservesStandardFieldsAndFindsErrorInfoAmongTypedDetails
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void preservesStandardFieldsAndFindsErrorInfoAmongTypedDetails() {
     var error =
@@ -73,6 +79,12 @@ class RemoteA2AErrorResponseTest {
     assertEquals("a2a.invalid_params", error.workflowErrorCode());
   }
 
+  // TC-ENG | ignoresOldProblemShapeAndNestedBusinessErrors
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void ignoresOldProblemShapeAndNestedBusinessErrors() {
     assertNull(
@@ -87,6 +99,12 @@ class RemoteA2AErrorResponseTest {
     assertNull(RemoteA2AErrorException.fromPayload("{\"error\":{"));
   }
 
+  // TC-ENG | redactsTypedDetailsAndResponseHeaders
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void redactsTypedDetailsAndResponseHeaders() {
     String payload =
@@ -99,6 +117,12 @@ class RemoteA2AErrorResponseTest {
     assertEquals(List.of("***"), error.getResponseHeaders().get("Authorization"));
   }
 
+  // TC-ENG | normalizesPeerSuppliedReasonBeforeUsingItAsAWorkflowCode
+  //
+  // 输入: 合法输入数据
+  // 预期输出: 返回预期结果，字段值精确匹配
+  // 断言点: 返回值精确断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void normalizesPeerSuppliedReasonBeforeUsingItAsAWorkflowCode() {
     String payload = error(400).replace("INVALID_PARAMS", "Invalid Params / Port#1");
@@ -191,6 +215,12 @@ class RemoteA2AErrorResponseTest {
     }
   }
 
+  // TC-ENG | projectsTypedSdkErrorsAndHandlesCauseCycles
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void projectsTypedSdkErrorsAndHandlesCauseCycles() {
     var projected =
@@ -206,6 +236,12 @@ class RemoteA2AErrorResponseTest {
     assertNull(RemoteA2AErrorException.findIn(one));
   }
 
+  // TC-ENG | nonStreamingResponsesPreserveTheStandardA2AError
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void nonStreamingResponsesPreserveTheStandardA2AError() throws Exception {
     HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -238,6 +274,12 @@ class RemoteA2AErrorResponseTest {
     }
   }
 
+  // TC-ENG | runtimeUsesTheHttpClientCustomizationHookWithoutBypassingErrorDetection
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void runtimeUsesTheHttpClientCustomizationHookWithoutBypassingErrorDetection() throws Exception {
     HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
