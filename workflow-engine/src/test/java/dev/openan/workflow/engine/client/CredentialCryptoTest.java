@@ -35,6 +35,12 @@ class CredentialCryptoTest {
     System.clearProperty("A2AT_CRED_KEY");
   }
 
+  // TC-ENG | encryptedCredentialRoundTrips
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void encryptedCredentialRoundTrips() {
     System.setProperty("A2AT_CRED_KEY", KEY);
@@ -42,6 +48,12 @@ class CredentialCryptoTest {
     assertEquals("p@ss&中文", CredentialCrypto.decryptIfNeeded(encrypted));
   }
 
+  // TC-ENG | explicitEncryptionKeyDoesNotMutateGlobalConfiguration
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void explicitEncryptionKeyDoesNotMutateGlobalConfiguration() {
     System.setProperty("A2AT_CRED_KEY", OTHER_KEY);
@@ -50,6 +62,12 @@ class CredentialCryptoTest {
     assertEquals(OTHER_KEY, System.getProperty("A2AT_CRED_KEY"));
   }
 
+  // TC-ENG | corruptedEncryptedCredentialFailsClosed
+  //
+  // 输入: 触发失败的场景
+  // 预期输出: 失败结果或异常，错误信息包含关键信息
+  // 断言点: success 标志 + 错误消息 + 历史记录
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void corruptedEncryptedCredentialFailsClosed() {
     System.setProperty("A2AT_CRED_KEY", KEY);
@@ -58,11 +76,23 @@ class CredentialCryptoTest {
         () -> CredentialCrypto.decryptIfNeeded("enc:not-base64:also-not-base64"));
   }
 
+  // TC-ENG | plaintextRemainsBackwardCompatible
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void plaintextRemainsBackwardCompatible() {
     assertEquals("plain", CredentialCrypto.decryptIfNeeded("plain"));
   }
 
+  // TC-ENG | instanceScopedKeyTakesPrecedenceOverJvmProperty
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void instanceScopedKeyTakesPrecedenceOverJvmProperty() {
     System.setProperty("A2AT_CRED_KEY", KEY);

@@ -27,6 +27,12 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class ContentDependencyBoundaryTest {
+  // TC-ENG | engineClasspathHasNoContentClientOrLlmModules
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void engineClasspathHasNoContentClientOrLlmModules() {
     for (String name :
@@ -46,6 +52,12 @@ class ContentDependencyBoundaryTest {
             "a2a-t-negotiation-")) assertFalse(classpath.contains(module), module);
   }
 
+  // TC-ENG | sourcePackagesHaveOnlyAllowedDependencyDirection
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void sourcePackagesHaveOnlyAllowedDependencyDirection() throws Exception {
     Path root = Path.of("src/main/java/dev/openan/workflow/engine");
