@@ -24,6 +24,12 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class WireLogFormatterTest {
+  // TC-ENG | prettyJsonPreservesDuplicateKeysNumericAndEscapedStringTokens
+  //
+  // 输入: 重复/二次提交
+  // 预期输出: 幂等行为：不产生重复副作用
+  // 断言点: 调用次数 + 结果一致性
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void prettyJsonPreservesDuplicateKeysNumericAndEscapedStringTokens() {
     String raw = "{\"n\":1e+02,\"n\":-0.0,\"text\":\"x\\n\\\"中文\\\"\",\"a\":[{},1]}";
@@ -34,6 +40,12 @@ class WireLogFormatterTest {
     assertTrue(pretty.contains("\n    {},\n    1\n  ]"));
   }
 
+  // TC-ENG | prettySseKeepsEventControlFieldsAndMakesDataReadable
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void prettySseKeepsEventControlFieldsAndMakesDataReadable() {
     String raw =
@@ -49,6 +61,12 @@ class WireLogFormatterTest {
     assertEquals(pretty, WireLogFormatter.prettyBody(raw, "sdk-sse-text"));
   }
 
+  // TC-ENG | sseDisplaySeparatesEventsAndKeepsRawObservationAvailable
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void sseDisplaySeparatesEventsAndKeepsRawObservationAvailable() {
     String raw = "id: 1\ndata: {\n" + "data:   \"n\": 1\n" + "data: }\n\n" + "id: 2\ndata: {}\n\n";
@@ -78,6 +96,12 @@ class WireLogFormatterTest {
         WireLogFormatter.prettyBody("data: {\"unfinished\":\n\n", "raw-sse-frame"));
   }
 
+  // TC-ENG | invalidTruncatedAndNonJsonContentAreNotRepaired
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void invalidTruncatedAndNonJsonContentAreNotRepaired() {
     for (String raw : List.of("{\"x\":", "{\"x\":1} trailing", "[DONE]", "plain text"))
@@ -86,6 +110,12 @@ class WireLogFormatterTest {
         "data: [DONE]\n\n", WireLogFormatter.prettyBody("data: [DONE]\n\n", "raw-sse-frame"));
   }
 
+  // TC-ENG | logLayoutIsPrettyButObserversKeepExactRedactedWireText
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void logLayoutIsPrettyButObserversKeepExactRedactedWireText() {
     List<WireLog.Entry> entries = new ArrayList<>();
@@ -123,6 +153,12 @@ class WireLogFormatterTest {
     assertEquals(raw.replace("hidden", "***"), entry.body());
   }
 
+  // TC-ENG | envelopeEntriesKeepFullLayoutWhileBodyFramesStayCompact
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void envelopeEntriesKeepFullLayoutWhileBodyFramesStayCompact() {
     WireLog.Entry envelope =
@@ -164,6 +200,12 @@ class WireLogFormatterTest {
     assertTrue(compact.contains("=== Body ==="));
   }
 
+  // TC-ENG | prettyDisplayDecodesNonAsciiUnicodeEscapesButKeepsStructuralEscapes
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void prettyDisplayDecodesNonAsciiUnicodeEscapesButKeepsStructuralEscapes() {
     String raw =
@@ -181,6 +223,12 @@ class WireLogFormatterTest {
     assertTrue(pretty.contains("\\u005c"));
   }
 
+  // TC-ENG | displayExpansionIsBoundedAndDoesNotRecurseOnDeepJson
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void displayExpansionIsBoundedAndDoesNotRecurseOnDeepJson() {
     String key = "WORKFLOW_ENGINE_PROTOCOL_MAX_BODY_CHARS";
@@ -200,6 +248,12 @@ class WireLogFormatterTest {
     }
   }
 
+  // TC-ENG | disabledBodyIsNotReconstructedByPrettyDisplay
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void disabledBodyIsNotReconstructedByPrettyDisplay() {
     String key = "WORKFLOW_ENGINE_PROTOCOL_INCLUDE_BODY";

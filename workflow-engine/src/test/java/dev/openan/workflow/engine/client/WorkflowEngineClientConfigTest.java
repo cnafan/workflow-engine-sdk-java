@@ -26,6 +26,12 @@ import org.junit.jupiter.api.Test;
 
 class WorkflowEngineClientConfigTest {
 
+  // TC-ENG | rejectsFileAndInlineCredentialsTogether
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void rejectsFileAndInlineCredentialsTogether() {
     Map<String, Map<String, Map<String, Object>>> inline =
@@ -43,6 +49,12 @@ class WorkflowEngineClientConfigTest {
     assertTrue(error.getMessage().contains("mutually exclusive"));
   }
 
+  // TC-ENG | notificationAcknowledgementDefaultsToFiveMinutesAndRemainsConfigurable
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void notificationAcknowledgementDefaultsToFiveMinutesAndRemainsConfigurable() {
     assertEquals(
@@ -55,6 +67,12 @@ class WorkflowEngineClientConfigTest {
             .getNotificationAckTimeoutSeconds());
   }
 
+  // TC-ENG | rejectsInvalidResourceLimits
+  //
+  // 输入: 非法/畸形输入
+  // 预期输出: 抛出具体异常类型，消息含关键字
+  // 断言点: 异常类型 + 消息关键字
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void rejectsInvalidResourceLimits() {
     assertThrows(
@@ -77,6 +95,12 @@ class WorkflowEngineClientConfigTest {
         () -> WorkflowEngineClientConfig.builder().notificationAckTimeoutSeconds(0).build());
   }
 
+  // TC-ENG | credentialKeyIsExplicitAndConfigurationIsSnapshotted
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void credentialKeyIsExplicitAndConfigurationIsSnapshotted() {
     Map<String, Object> scheme = new LinkedHashMap<>(Map.of("username", "test"));

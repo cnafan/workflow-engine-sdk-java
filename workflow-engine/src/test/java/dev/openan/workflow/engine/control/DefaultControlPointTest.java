@@ -33,6 +33,12 @@ class DefaultControlPointTest {
   private final TaskRequest request =
       TaskRequest.builder().agentName("agent").stepName("step").instruction("run").build();
 
+  // TC-ENG | preparesTextWithoutSending
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void preparesTextWithoutSending() {
     assertThrows(
@@ -40,6 +46,12 @@ class DefaultControlPointTest {
         () -> new DefaultControlPoint().onTask(request).join());
   }
 
+  // TC-ENG | localExecutionRequiresBusinessHandler
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void localExecutionRequiresBusinessHandler() {
     assertThrows(
@@ -47,6 +59,12 @@ class DefaultControlPointTest {
         () -> new DefaultControlPoint().onSelfTask(request).join());
   }
 
+  // TC-ENG | conditionalRoutingRequiresBusinessHandler
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void conditionalRoutingRequiresBusinessHandler() {
     assertThrows(
@@ -59,6 +77,12 @@ class DefaultControlPointTest {
                 .join());
   }
 
+  // TC-ENG | handlersCanBeRegisteredIndependently
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void handlersCanBeRegisteredIndependently() {
     var handler =

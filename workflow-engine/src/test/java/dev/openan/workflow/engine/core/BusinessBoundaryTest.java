@@ -55,6 +55,12 @@ class BusinessBoundaryTest {
         .build();
   }
 
+  // TC-ENG | identifiersAndWorkflowStateAreIsolatedAcrossExecutions
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void identifiersAndWorkflowStateAreIsolatedAcrossExecutions() {
     var workflow =
@@ -80,6 +86,12 @@ class BusinessBoundaryTest {
     assertThrows(CompletionException.class, () -> one.run().join());
   }
 
+  // TC-ENG | routingUsesSelectedAncestorsAndCurrentTypedOutputsSeparately
+  //
+  // 输入: 目标方法的输入参数
+  // 预期输出: 预期行为结果
+  // 断言点: 返回值/状态断言
+  // 防回归: 若对应行为被改变，本用例失败
   @Test
   void routingUsesSelectedAncestorsAndCurrentTypedOutputsSeparately() {
     for (List<String> selection :
