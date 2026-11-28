@@ -76,10 +76,14 @@ public final class WorkflowObservability {
         success ? "step completed" : "step failed",
         attributes,
         step.span);
-    observe.metric(
-        "step.duration",
-        elapsedMillis(step.startedNanos),
-        Map.of("workflow.step", step.name, "gen_ai.agent.name", step.ownerAgent));
+    Map<String, Object> metricAttributes =
+        Map.of(
+            "workflow.step.status",
+            success ? "success" : "failed",
+            "gen_ai.agent.name",
+            step.ownerAgent);
+    observe.metric("step.duration", elapsedMillis(step.startedNanos), metricAttributes);
+    observe.metric("step.count", 1, metricAttributes);
     step.span.close();
   }
 
@@ -132,8 +136,9 @@ public final class WorkflowObservability {
   private static Map<String, Object> stepAttributes(
       String name, int index, String ownerAgent, String status) {
     Map<String, Object> attributes = new LinkedHashMap<>();
-    attributes.put("workflow.step", name);
-    attributes.put("workflow.step.index", index);
+    attributes.put("workflow.step.name", name);
+    // PSOP steps have a unique name but no separate ID field.
+    attributes.put("workflow.step.id", name);
     attributes.put("workflow.step.status", status);
     attributes.put("workflow.step.owner_agent", ownerAgent);
     return attributes;
