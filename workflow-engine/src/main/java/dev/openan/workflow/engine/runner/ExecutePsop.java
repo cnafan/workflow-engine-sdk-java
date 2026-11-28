@@ -37,7 +37,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -88,7 +91,7 @@ public class ExecutePsop {
       EventCallback eventCallback,
       BiFunction<ExecutionResult, List<Map<String, Object>>, CompletableFuture<Void>> onFinish,
       Function<Map<String, Object>, Object> onEvent) {
-    return executeInternal(
+    return executeObserved(
         psop,
         agentCards,
         controlPoint,
@@ -102,7 +105,11 @@ public class ExecutePsop {
         eventCallback,
         null,
         onFinish,
-        onEvent);
+        onEvent,
+        null,
+        null,
+        null,
+        null);
   }
 
   /**
@@ -126,7 +133,7 @@ public class ExecutePsop {
       Observability observability,
       BiFunction<ExecutionResult, List<Map<String, Object>>, CompletableFuture<Void>> onFinish,
       Function<Map<String, Object>, Object> onEvent) {
-    return executeInternal(
+    return executeObserved(
         psop,
         agentCards,
         controlPoint,
@@ -140,10 +147,14 @@ public class ExecutePsop {
         eventCallback,
         observability,
         onFinish,
-        onEvent);
+        onEvent,
+        null,
+        null,
+        null,
+        null);
   }
 
-  private static CompletableFuture<ExecutionResult> executeInternal(
+  private static CompletableFuture<ExecutionResult> executeObserved(
       Workflow psop,
       List<AgentCard> agentCards,
       ControlPoint controlPoint,
@@ -157,13 +168,20 @@ public class ExecutePsop {
       EventCallback eventCallback,
       Observability observability,
       BiFunction<ExecutionResult, List<Map<String, Object>>, CompletableFuture<Void>> onFinish,
-      Function<Map<String, Object>, Object> onEvent) {
+      Function<Map<String, Object>, Object> onEvent,
+      ObservationSink sink,
+      String businessRef,
+      String traceparent,
+      String tracestate) {
 
     Objects.requireNonNull(psop, "psop");
     Objects.requireNonNull(controlPoint, "controlPoint");
     EventCallback emitter = eventCallback != null ? eventCallback : new EventCallback();
     List<Map<String, Object>> collected = Collections.synchronizedList(new ArrayList<>());
-    EventCallback collectingCallback = createCollectingCallback(emitter, collected, onEvent);
+    var observation =
+        new java.util.concurrent.atomic.AtomicReference<ObservationSink.Observation>();
+    EventCallback collectingCallback =
+        createCollectingCallback(emitter, collected, onEvent, observation);
     WorkflowEngineClient client =
         engineClient != null
             ? engineClient
@@ -175,9 +193,10 @@ public class ExecutePsop {
                 credentialsConfigPath,
                 collectingCallback);
     boolean closeClientOnFinish = engineClient == null;
-    CompletableFuture<ExecutionResult> execution;
+    WorkflowExecutor executor;
+    CompletionStage<ExecutionResult> execution;
     try {
-      WorkflowExecutor executor =
+      executor =
           new WorkflowExecutor(
               psop,
               controlPoint,
@@ -186,12 +205,26 @@ public class ExecutePsop {
               runtimeIntent != null ? runtimeIntent : "",
               lang != null ? lang : "zh",
               observability);
+      if (sink != null) {
+        try {
+          observation.set(
+              sink.begin(psop, executor.getExecutionId(), businessRef, traceparent, tracestate));
+        } catch (RuntimeException error) {
+          // Reporting must never decide whether the run happens.
+          log.warn("Execution reporting could not start; the run continues unreported", error);
+        }
+      }
       log.info(
           "[execute_psop] Starting: workflow={}, {} steps", psop.getName(), psop.getSteps().size());
       collectingCallback.onEvent(
-          EventType.START, Map.of("workflow", psop.getName(), "steps", psop.getSteps().size()));
-      execution = executor.run();
+          EventType.START,
+          Map.of(
+              "workflow", psop.getName(),
+              "steps", psop.getSteps().size(),
+              "executionId", executor.getExecutionId()));
+      execution = executor.start();
     } catch (RuntimeException error) {
+      finishObservation(observation, "failed");
       closeExecution(client, closeClientOnFinish, collectingCallback);
       return CompletableFuture.failedFuture(error);
     }
@@ -208,20 +241,34 @@ public class ExecutePsop {
     exposed.whenComplete(
         (result, error) -> {
           if (exposed.isCancelled()) {
-            execution.cancel(true);
+            executor.requestCancellation();
             CompletableFuture<ExecutionResult> pending = finishing.get();
-            if (pending != null) pending.cancel(true);
-            cleanup.run();
+            if (pending != null) {
+              pending.cancel(true);
+              cleanup.run();
+            }
           }
         });
     // Observe the source independently: cancelling the public future must not skip cleanup.
     execution.whenComplete(
         (result, error) -> {
-          ExecutionResult outcome = error == null ? result : handleExecutionError(error);
+          Throwable cause = error;
+          while (cause instanceof CompletionException && cause.getCause() != null) {
+            cause = cause.getCause();
+          }
+          ExecutionResult outcome = cause == null ? result : handleExecutionError(cause);
+          finishObservation(
+              observation,
+              cause instanceof CancellationException
+                  ? "cancelled"
+                  : outcome.isSuccess() ? "succeeded" : "failed");
           CompletableFuture<ExecutionResult> completion =
               finalizeResult(outcome, collectingCallback, collected, onFinish, cleanup);
           finishing.set(completion);
-          if (exposed.isCancelled()) completion.cancel(true);
+          if (exposed.isCancelled()) {
+            completion.cancel(true);
+            cleanup.run();
+          }
           completion.whenComplete(
               (value, failure) -> {
                 if (failure == null) exposed.complete(value);
@@ -270,14 +317,37 @@ public class ExecutePsop {
     return new Builder();
   }
 
+  /** Reports a run's outcome, and never lets a reporting failure reach the execution. */
+  private static void finishObservation(
+      java.util.concurrent.atomic.AtomicReference<ObservationSink.Observation> observation,
+      String outcome) {
+    ObservationSink.Observation run = observation.get();
+    if (run == null) return;
+    try {
+      run.finish(outcome);
+    } catch (RuntimeException error) {
+      log.warn("Execution observation could not report its outcome", error);
+    }
+  }
+
   @SuppressWarnings("unchecked")
   private static EventCallback createCollectingCallback(
       EventCallback emitter,
       List<Map<String, Object>> collected,
-      Function<Map<String, Object>, Object> onEvent) {
+      Function<Map<String, Object>, Object> onEvent,
+      java.util.concurrent.atomic.AtomicReference<ObservationSink.Observation> observation) {
     return new EventCallback() {
       @Override
       public void onEvent(String eventType, Map<String, Object> data) {
+        ObservationSink.Observation run = observation.get();
+        if (run != null) {
+          try {
+            run.observe(eventType, data);
+          } catch (RuntimeException error) {
+            // The event still reaches the host: only its report is lost.
+            log.warn("Execution observation could not capture {}", eventType, error);
+          }
+        }
         Map<String, Object> event = new HashMap<>();
         event.put("type", eventType);
         event.put("data", serialize(data));
@@ -355,7 +425,7 @@ public class ExecutePsop {
   }
 
   private static ExecutionResult handleExecutionError(Throwable error) {
-    boolean cancelled = error instanceof java.util.concurrent.CancellationException;
+    boolean cancelled = error instanceof CancellationException;
     String message =
         cancelled
             ? "Workflow execution cancelled"
@@ -493,6 +563,36 @@ public class ExecutePsop {
     private BiFunction<ExecutionResult, List<Map<String, Object>>, CompletableFuture<Void>>
         onFinish;
     private Function<Map<String, Object>, Object> onEvent;
+    private ExecutionReporter reporter;
+    private ObservationSink observationSink;
+    private String businessRef;
+    private String traceparent;
+    private String tracestate;
+
+    /**
+     * Replaces the reporter with a substitute, so a test can prove that reporting failures cannot
+     * affect the run.
+     */
+    Builder observationSink(ObservationSink value) {
+      this.observationSink = value;
+      return this;
+    }
+
+    public Builder reporter(ExecutionReporter value) {
+      this.reporter = value;
+      return this;
+    }
+
+    public Builder observationContext(String businessRef, String traceparent) {
+      return observationContext(businessRef, traceparent, null);
+    }
+
+    public Builder observationContext(String businessRef, String traceparent, String tracestate) {
+      this.businessRef = businessRef;
+      this.traceparent = traceparent;
+      this.tracestate = tracestate;
+      return this;
+    }
 
     public Builder psop(Workflow psop) {
       this.psop = psop;
@@ -589,7 +689,7 @@ public class ExecutePsop {
         throw new IllegalArgumentException(
             "engineClient cannot be combined with agentCards, a2aClientRuntime, TLS, or credentials settings");
       }
-      return ExecutePsop.execute(
+      return ExecutePsop.executeObserved(
           psop,
           agentCards,
           controlPoint,
@@ -603,7 +703,13 @@ public class ExecutePsop {
           eventCallback,
           observability,
           onFinish,
-          onEvent);
+          onEvent,
+          observationSink != null
+              ? observationSink
+              : reporter == null ? null : new ReporterObservationSink(reporter),
+          businessRef,
+          traceparent,
+          tracestate);
     }
   }
 }

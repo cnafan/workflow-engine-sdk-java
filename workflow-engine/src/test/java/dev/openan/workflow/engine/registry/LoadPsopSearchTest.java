@@ -58,6 +58,18 @@ class LoadPsopSearchTest {
   // 断言点: 异常类型 + 中断标志恢复
   // 防回归: 若对应行为被改变，本用例失败
   @Test
+  void aRetrievalGetsALongerDeadlineThanAStorageRead() {
+    // The center ranks its whole catalog with a language model, so a real search takes tens of
+    // seconds; a storage-shaped deadline aborts it. Only the response deadline differs.
+    assertTrue(
+        LoadPsop.SEARCH_TIMEOUTS.readTimeout().compareTo(LoadPsop.DEFAULT_TIMEOUTS.readTimeout())
+            > 0);
+    assertEquals(
+        LoadPsop.DEFAULT_TIMEOUTS.connectTimeout(), LoadPsop.SEARCH_TIMEOUTS.connectTimeout());
+    assertEquals(Duration.ofSeconds(30), LoadPsop.DEFAULT_TIMEOUTS.readTimeout());
+  }
+
+  @Test
   void customReadTimeoutIsApplied() throws Exception {
     com.sun.net.httpserver.HttpServer server =
         com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress(0), 0);

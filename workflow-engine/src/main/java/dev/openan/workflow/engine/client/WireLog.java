@@ -130,6 +130,9 @@ public final class WireLog {
       String visibility,
       Map<String, String> context) {
     try {
+      boolean commentFrame =
+          observer == null && "raw-sse-frame".equals(representation) && isSseCommentFrame(body);
+      if (commentFrame && !LOG.isTraceEnabled()) return;
       String safeBody = redact(body);
       if (!setting("WORKFLOW_ENGINE_PROTOCOL_INCLUDE_BODY", true)) {
         safeBody = "(body logging disabled)";
@@ -151,14 +154,22 @@ public final class WireLog {
               safeBody,
               visibility,
               Map.copyOf(context));
-      if (observer != null) observer.accept(entry);
-      else if (LOG.isDebugEnabled())
-        LOG.debug(
-            "{}", WireLogFormatter.format(entry, setting("WORKFLOW_ENGINE_PROTOCOL_PRETTY", true)));
+      if (observer != null) {
+        observer.accept(entry);
+      } else if (commentFrame || LOG.isDebugEnabled()) {
+        String formatted =
+            WireLogFormatter.format(entry, setting("WORKFLOW_ENGINE_PROTOCOL_PRETTY", true));
+        if (commentFrame) LOG.trace("{}", formatted);
+        else LOG.debug("{}", formatted);
+      }
     } catch (RuntimeException ignored) {
       // Logging must never change delivery, backpressure or application state.
       LOG.warn("Protocol observation failed; record dropped");
     }
+  }
+
+  static boolean isSseCommentFrame(String body) {
+    return body != null && body.lines().allMatch(line -> line.isEmpty() || line.startsWith(":"));
   }
 
   /** Values are already redacted, including for test/custom observers. */

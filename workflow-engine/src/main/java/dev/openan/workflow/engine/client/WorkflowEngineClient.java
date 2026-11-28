@@ -24,6 +24,7 @@ import dev.openan.workflow.engine.control.EventCallback;
 import dev.openan.workflow.engine.control.NegotiationStrategy;
 import dev.openan.workflow.engine.model.MessageContent;
 import dev.openan.workflow.engine.model.SendMessageResult;
+import dev.openan.workflow.engine.model.TaskRequest;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -56,6 +57,15 @@ public interface WorkflowEngineClient {
       NegotiationStrategy negotiationStrategy,
       EventCallback eventCallback) {
     return sendTask(agentName, content, negotiationStrategy);
+  }
+
+  /** Sends a DAG task using the executor's execution and logical task IDs. */
+  default CompletableFuture<SendMessageResult> sendWorkflowTask(
+      TaskRequest request,
+      MessageContent content,
+      NegotiationStrategy negotiationStrategy,
+      EventCallback eventCallback) {
+    return sendTask(request.getAgentName(), content, negotiationStrategy, eventCallback);
   }
 
   /**

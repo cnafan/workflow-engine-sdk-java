@@ -21,8 +21,11 @@ package dev.openan.workflow.engine.model;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -41,13 +44,35 @@ public class Workflow {
   @Builder.Default private String name = "";
   @Builder.Default private String description = "";
   @Builder.Default private List<WorkflowStep> steps = List.of();
+  private String revision;
 
-  /** All-args constructor with defensive copies; Lombok's builder routes through it. */
-  public Workflow(String id, String name, String description, List<WorkflowStep> steps) {
+  /** The registered host this PSOP declares as its executor, when it names one. */
+  private String workflowHost;
+
+  /** The constructor Lombok's builder targets; takes a defensive copy of the steps. */
+  public Workflow(
+      String id,
+      String name,
+      String description,
+      List<WorkflowStep> steps,
+      String revision,
+      String workflowHost) {
     this.id = id == null ? "" : id;
     this.name = name == null ? "" : name;
     this.description = description == null ? "" : description;
     this.steps = steps == null ? List.of() : new ArrayList<>(steps);
+    this.revision = revision;
+    this.workflowHost = workflowHost;
+  }
+
+  /** A definition that declares no host. */
+  public Workflow(
+      String id, String name, String description, List<WorkflowStep> steps, String revision) {
+    this(id, name, description, steps, revision, null);
+  }
+
+  public Workflow(String id, String name, String description, List<WorkflowStep> steps) {
+    this(id, name, description, steps, null);
   }
 
   /** Unmodifiable view; steps are snapshots of the loaded definition. */
@@ -72,9 +97,38 @@ public class Workflow {
     wf.setId(stringValue(data, "id", ""));
     wf.setName(stringValue(data, "name", ""));
     wf.setDescription(stringValue(data, "description", ""));
+    wf.setRevision(stringValue(data, "revision", null));
+    wf.setWorkflowHost(stringValue(data, "workflow_host", null));
     List<WorkflowStep> steps = parseSteps(mapList(data.get("steps"), "steps"));
     wf.setSteps(steps);
     return wf;
+  }
+
+  /**
+   * The host this PSOP declares as its executor, or empty when it declares none.
+   *
+   * <p>A definition names its host directly with {@code workflow_host}. Older ones only name the
+   * agent that runs their local ({@code SelfLoop}) tasks, which the center reads as the host. Both
+   * are honoured, so a host that selects a PSOP for itself sees the same host the center would
+   * dispatch to. A definition that names more than one host is refused, as it is by the center.
+   *
+   * @throws IllegalArgumentException if the definition names more than one host
+   */
+  public Optional<String> declaredHost() {
+    Set<String> names = new LinkedHashSet<>();
+    for (WorkflowStep step : getSteps()) {
+      if (step.getStepType() != StepType.SELF_LOOP) continue;
+      for (Task task : step.getSubtasks()) {
+        if (task.getAgent() != null && !task.getAgent().isBlank())
+          names.add(task.getAgent().strip());
+      }
+    }
+    if (workflowHost != null && !workflowHost.isBlank()) names.add(workflowHost.strip());
+    if (names.size() > 1) {
+      throw new IllegalArgumentException(
+          "workflow_host and SelfLoop tasks must identify one host, not " + names);
+    }
+    return names.stream().findFirst();
   }
 
   private static List<WorkflowStep> parseSteps(List<Map<String, Object>> stepList) {

@@ -230,15 +230,24 @@ public class DefaultWorkflowEngineClient implements WorkflowEngineClient, AutoCl
       MessageContent content,
       NegotiationStrategy negotiationStrategy,
       EventCallback invocationEvents) {
-    if (negotiationStrategy == null) {
-      return CompletableFuture.failedFuture(new NullPointerException("negotiationStrategy"));
-    }
     TaskRequest request =
         TaskRequest.builder()
             .agentName(agentName)
             .executionId(UUID.randomUUID().toString())
             .taskId(UUID.randomUUID().toString())
             .build();
+    return sendWorkflowTask(request, content, negotiationStrategy, invocationEvents);
+  }
+
+  @Override
+  public CompletableFuture<SendMessageResult> sendWorkflowTask(
+      TaskRequest request,
+      MessageContent content,
+      NegotiationStrategy negotiationStrategy,
+      EventCallback invocationEvents) {
+    if (negotiationStrategy == null) {
+      return CompletableFuture.failedFuture(new NullPointerException("negotiationStrategy"));
+    }
     ControlPoint callbacks =
         ControlPoint.builder().onNegotiation(negotiationStrategy::resolve).build();
     return dispatchTask(
@@ -396,7 +405,9 @@ public class DefaultWorkflowEngineClient implements WorkflowEngineClient, AutoCl
                 taskId,
                 event ->
                     forwardIntermediateEvent(
-                        event, invocation.task.getAgentName(), invocation.events),
+                        event,
+                        invocation.task.getAgentName(),
+                        (type, data) -> emit(invocation, type, data)),
                 invocation::active));
   }
 
@@ -615,7 +626,10 @@ public class DefaultWorkflowEngineClient implements WorkflowEngineClient, AutoCl
 
   private void emit(Invocation invocation, String type, Map<String, Object> data) {
     try {
-      invocation.events.onEvent(type, data);
+      Map<String, Object> correlated = new HashMap<>(data);
+      correlated.put("taskId", invocation.task.getTaskId());
+      correlated.put("executionId", invocation.task.getExecutionId());
+      invocation.events.onEvent(type, correlated);
     } catch (RuntimeException error) {
       log.warn("Event callback failed for {}", type, error);
     }
@@ -630,7 +644,9 @@ public class DefaultWorkflowEngineClient implements WorkflowEngineClient, AutoCl
   }
 
   private void forwardIntermediateEvent(
-      ClientEvent event, String agentName, EventCallback invocationEvents) {
+      ClientEvent event,
+      String agentName,
+      java.util.function.BiConsumer<String, Map<String, Object>> consumer) {
     Map<String, Object> data = ClientEventMapper.toMap(event, agentName);
     if (event instanceof TaskUpdateEvent tue) {
       if (tue.getUpdateEvent() instanceof TaskStatusUpdateEvent sue) {
@@ -640,7 +656,7 @@ public class DefaultWorkflowEngineClient implements WorkflowEngineClient, AutoCl
             agentName,
             state,
             sue.isFinal());
-        emit(invocationEvents, EventType.AGENT_STATUS_UPDATE, data);
+        consumer.accept(EventType.AGENT_STATUS_UPDATE, data);
       } else if (tue.getUpdateEvent()
           instanceof org.a2aproject.sdk.spec.TaskArtifactUpdateEvent ae) {
         log.info(
@@ -648,12 +664,12 @@ public class DefaultWorkflowEngineClient implements WorkflowEngineClient, AutoCl
             agentName,
             ae.artifact().name(),
             ae.artifact().artifactId());
-        emit(invocationEvents, EventType.AGENT_ARTIFACT_UPDATE, data);
+        consumer.accept(EventType.AGENT_ARTIFACT_UPDATE, data);
       }
     } else if (event instanceof MessageEvent) {
       String text = (String) data.getOrDefault("text", "");
       log.info("[EngineClient] Agent {} message event: {} chars", agentName, text.length());
-      emit(invocationEvents, EventType.AGENT_MESSAGE_EVENT, data);
+      consumer.accept(EventType.AGENT_MESSAGE_EVENT, data);
     }
   }
 
@@ -730,7 +746,8 @@ public class DefaultWorkflowEngineClient implements WorkflowEngineClient, AutoCl
         agentName,
         taskId,
         event -> {
-          forwardIntermediateEvent(event, agentName, this.eventCallback);
+          forwardIntermediateEvent(
+              event, agentName, (type, data) -> emit(this.eventCallback, type, data));
           if (eventCallback != null) {
             eventCallback.accept(ClientEventMapper.toMap(event, agentName));
           }

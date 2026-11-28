@@ -21,6 +21,7 @@ package dev.openan.workflow.engine.runner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,16 +62,127 @@ class ExecutePsopTest {
   // 断言点: 关闭标志 + 后续行为
   // 防回归: 若对应行为被改变，本用例失败
   @Test
+  void reporterUsesRunnerIdentityAndRetriesPersistentEvents(
+      @org.junit.jupiter.api.io.TempDir java.nio.file.Path spool) throws Exception {
+    var received =
+        new java.util.concurrent.LinkedBlockingQueue<com.fasterxml.jackson.databind.JsonNode>();
+    var first = new AtomicInteger();
+    var json = new com.fasterxml.jackson.databind.ObjectMapper();
+    var http =
+        com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    http.createContext(
+        "/events",
+        exchange -> {
+          try (exchange) {
+            var batch = json.readTree(exchange.getRequestBody().readAllBytes());
+            if (first.getAndIncrement() == 0) {
+              exchange.sendResponseHeaders(503, -1);
+              return;
+            }
+            batch.forEach(received::add);
+            byte[] ack =
+                json.writeValueAsBytes(
+                    Map.of(
+                        "execution_id",
+                        batch.get(0).get("subject").asText(),
+                        "accepted",
+                        batch.size(),
+                        "duplicates",
+                        0,
+                        "contiguous_through",
+                        batch.get(batch.size() - 1).path("seq").asText()));
+            exchange.sendResponseHeaders(200, ack.length);
+            exchange.getResponseBody().write(ack);
+          }
+        });
+    http.start();
+    try (var reporter =
+        new ExecutionReporter(
+            java.net.URI.create("http://127.0.0.1:" + http.getAddress().getPort() + "/events"),
+            "test-key",
+            "urn:openan:host:java-test",
+            spool)) {
+      var workflow = linearWorkflow();
+      workflow.setRevision("a".repeat(64));
+      var run = new AtomicReference<String>();
+      assertTrue(
+          ExecutePsop.builder()
+              .psop(workflow)
+              .engineClient(new StubWorkflowEngineClient("A", "B"))
+              .controlPoint(autoCp())
+              .reporter(reporter)
+              .eventCallback(
+                  new EventCallback() {
+                    @Override
+                    public void onEvent(String type, Map<String, Object> data) {
+                      if (EventType.TASK_STATUS_CHANGED.equals(type)) {
+                        run.set(data.get("executionId").toString());
+                        assertNotNull(data.get("taskId"));
+                      }
+                    }
+                  })
+              .execute()
+              .get(5, java.util.concurrent.TimeUnit.SECONDS)
+              .isSuccess());
+      var collected = new ArrayList<com.fasterxml.jackson.databind.JsonNode>();
+      long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+      while (System.nanoTime() < deadline) {
+        var event = received.poll(1, java.util.concurrent.TimeUnit.SECONDS);
+        if (event == null) continue;
+        collected.add(event);
+        if (event.get("type").asText().endsWith("execution.finished.v1")) break;
+      }
+      assertTrue(first.get() >= 2);
+      assertTrue(reporter.awaitDelivery(java.time.Duration.ofSeconds(5)));
+      assertTrue(collected.get(0).get("type").asText().endsWith("execution.started.v1"));
+      assertTrue(
+          collected
+              .get(collected.size() - 1)
+              .get("type")
+              .asText()
+              .endsWith("execution.finished.v1"));
+      assertTrue(collected.stream().allMatch(e -> run.get().equals(e.get("subject").asText())));
+      assertEquals(
+          2,
+          collected.stream()
+              .filter(
+                  e ->
+                      e.get("type").asText().endsWith("task.finished.v1")
+                          && e.get("data").get("task_id").isTextual())
+              .count());
+    } finally {
+      http.stop(0);
+    }
+  }
+
+  @Test
   void cancellationStopsLateTaskPreparationAndClosesLifecycleOnce() throws Exception {
     var prepared = new CompletableFuture<MessageContent>();
     var entered = new java.util.concurrent.CountDownLatch(1);
     var finished = new java.util.concurrent.CountDownLatch(1);
     var closes = new AtomicInteger();
+    List<String> observed = Collections.synchronizedList(new ArrayList<>());
+    ObservationSink observation =
+        (workflow, executionId, businessRef, traceparent, tracestate) ->
+            new ObservationSink.Observation() {
+              @Override
+              public void observe(String type, Map<String, Object> data) {
+                if (EventType.TASK_RESPONSE.equals(type)) {
+                  observed.add("task:" + data.get("status"));
+                }
+              }
+
+              @Override
+              public void finish(String outcome) {
+                observed.add("execution:" + outcome);
+              }
+            };
     var stub = new StubWorkflowEngineClient("A", "B");
     var execution =
         ExecutePsop.builder()
             .psop(linearWorkflow())
             .engineClient(stub)
+            .observationSink(observation)
             .controlPoint(
                 ControlPoint.builder()
                     .onTask(
@@ -101,6 +213,56 @@ class ExecutePsopTest {
     assertTrue(execution.isCancelled());
     assertEquals(0, stub.getSentMessages().size());
     assertEquals(1, closes.get());
+    assertEquals(List.of("task:cancelled", "execution:cancelled"), observed);
+  }
+
+  @Test
+  void cancellationWaitsForTheTaskAlreadyPublishingItsResult() throws Exception {
+    var content = new CompletableFuture<MessageContent>();
+    var publishing = new java.util.concurrent.CountDownLatch(1);
+    var release = new java.util.concurrent.CountDownLatch(1);
+    var finished = new CompletableFuture<String>();
+    List<String> taskOutcomes = Collections.synchronizedList(new ArrayList<>());
+    var execution =
+        ExecutePsop.builder()
+            .psop(linearWorkflow())
+            .engineClient(new StubWorkflowEngineClient("A", "B"))
+            .controlPoint(ControlPoint.builder().onTask(request -> content).build())
+            .observationSink(
+                (workflow, id, ref, parent, state) ->
+                    new ObservationSink.Observation() {
+                      @Override
+                      public void observe(String type, Map<String, Object> data) {
+                        if (EventType.TASK_STATUS_CHANGED.equals(type)) {
+                          publishing.countDown();
+                          try {
+                            release.await(5, java.util.concurrent.TimeUnit.SECONDS);
+                          } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                          }
+                        }
+                        if (EventType.TASK_RESPONSE.equals(type)) {
+                          taskOutcomes.add(String.valueOf(data.get("status")));
+                        }
+                      }
+
+                      @Override
+                      public void finish(String outcome) {
+                        finished.complete(outcome);
+                      }
+                    })
+            .execute();
+    var worker = CompletableFuture.runAsync(() -> content.complete(MessageContent.text("done")));
+    try {
+      assertTrue(publishing.await(5, java.util.concurrent.TimeUnit.SECONDS));
+      assertTrue(execution.cancel(true));
+      assertFalse(finished.isDone());
+    } finally {
+      release.countDown();
+    }
+    worker.get(5, java.util.concurrent.TimeUnit.SECONDS);
+    assertEquals("cancelled", finished.get(5, java.util.concurrent.TimeUnit.SECONDS));
+    assertEquals(List.of("success"), taskOutcomes);
   }
 
   // TC-ENG | cancellationWhileOnFinishIsPendingStillClosesExactlyOnce

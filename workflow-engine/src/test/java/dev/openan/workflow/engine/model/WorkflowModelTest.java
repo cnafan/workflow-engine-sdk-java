@@ -60,6 +60,70 @@ class WorkflowModelTest {
   // 断言点: 异常类型 + 消息关键字
   // 防回归: 若对应行为被改变，本用例失败
   @Test
+  void mapLoadingKeepsTheDeclaredHost() {
+    Workflow workflow = Workflow.fromMap(Map.of("workflow_host", "Host Agent", "steps", List.of()));
+    assertEquals("Host Agent", workflow.getWorkflowHost());
+    assertEquals("Host Agent", workflow.declaredHost().orElseThrow());
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Workflow.fromMap(Map.of("workflow_host", List.of("Host Agent"), "steps", List.of())));
+  }
+
+  @Test
+  void declaredHostFallsBackToTheSingleSelfLoopAgent() {
+    Workflow legacy =
+        Workflow.fromMap(
+            Map.of(
+                "steps",
+                List.of(
+                    Map.of(
+                        "name",
+                        "merge",
+                        "step_type",
+                        "SelfLoop",
+                        "subtasks",
+                        List.of(Map.of("agent", " Host Agent ", "description", "summarise"))))));
+    assertEquals("Host Agent", legacy.declaredHost().orElseThrow());
+  }
+
+  @Test
+  void declaredHostIsEmptyForAHostlessDefinition() {
+    Workflow remote =
+        Workflow.fromMap(
+            Map.of(
+                "steps",
+                List.of(
+                    Map.of(
+                        "name",
+                        "diagnose",
+                        "subtasks",
+                        List.of(Map.of("agent", "Domain Agent", "description", "diagnose"))))));
+    assertTrue(Workflow.fromMap(Map.of("steps", List.of())).declaredHost().isEmpty());
+    assertTrue(remote.declaredHost().isEmpty(), "an ordinary task's agent is not a host");
+  }
+
+  @Test
+  void declaredHostRefusesADefinitionThatNamesTwoHosts() {
+    Map<String, Object> definition =
+        Map.of(
+            "workflow_host",
+            "Host A",
+            "steps",
+            List.of(
+                Map.of(
+                    "name",
+                    "merge",
+                    "step_type",
+                    "SelfLoop",
+                    "subtasks",
+                    List.of(Map.of("agent", "Host B", "description", "x")))));
+    var failure =
+        assertThrows(
+            IllegalArgumentException.class, () -> Workflow.fromMap(definition).declaredHost());
+    assertTrue(failure.getMessage().contains("Host A") && failure.getMessage().contains("Host B"));
+  }
+
+  @Test
   void mapLoadingRejectsAmbiguousBusinessInput() {
     Map<String, Object> input = Map.of("text", "diagnose", "data", Map.of("id", 42));
     assertThrows(

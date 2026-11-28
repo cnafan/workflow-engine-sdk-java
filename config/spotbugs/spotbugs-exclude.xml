@@ -37,6 +37,22 @@
         </Or>
     </Match>
 
+    <!-- Execution-reporting acceptances (review on next touch):
+          - LoadPsop$LoadedPsop: the loaded Workflow IS the value handed to ExecutePsop; copying it
+            would detach the executed graph from the revision the center published
+          - CenterExecutionReporting: forPsop/activeReporter hand out the one shared reporter by
+            design, so every run of a host session uses the same durable queue -->
+    <Match>
+        <Or>
+            <Class name="~.*LoadPsop\$LoadedPsop"/>
+            <Class name="~.*CenterExecutionReporting"/>
+        </Or>
+        <Or>
+            <Bug pattern="EI_EXPOSE_REP"/>
+            <Bug pattern="EI_EXPOSE_REP2"/>
+        </Or>
+    </Match>
+
     <!-- Lombok-generated equals/hashCode re-check fields the compiler knows are non-null. -->
     <Match>
         <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/>

@@ -21,18 +21,19 @@ import java.util.Objects;
 import java.util.function.LongSupplier;
 
 /**
- * Thread-safe first-party account login for orchestration-center PSOP APIs. Logs in lazily at
+ * Thread-safe first-party account login for PSOP loading and execution reporting. Logs in lazily at
  * {@code POST /api/v1/auth/token}, caches the opaque Bearer until its advertised lifetime, and
  * renews by login (not an OAuth refresh grant). Share one instance across executions. Credentials
- * are scoped to the configured center's PSOP API; no cookies, agent credentials or global TLS
- * state. HTTP sends the password in plaintext; prefer verified HTTPS outside isolated local
- * development.
+ * are scoped to the configured center's PSOP and reporting APIs; no cookies, agent credentials or
+ * global TLS state. HTTP sends the password in plaintext; prefer verified HTTPS outside isolated
+ * local development.
  */
 public final class OrchestrationAccountAuth implements HttpAuthProvider {
   private static final ObjectMapper JSON = new ObjectMapper();
   private final URI loginUri;
   private final URI centerUri;
   private final String apiPath;
+  private final String eventsPath;
   private final String username;
   private final String password;
   private final TlsPolicy tls;
@@ -70,6 +71,7 @@ public final class OrchestrationAccountAuth implements HttpAuthProvider {
     centerUri = URI.create(base);
     loginUri = URI.create(base + "/api/v1/auth/token");
     apiPath = centerUri.getRawPath() + "/api/v1/orchestrate/";
+    eventsPath = centerUri.getRawPath() + CenterExecutionReporting.EVENTS_PATH;
     if (username == null || username.isBlank() || password == null || password.isBlank()) {
       throw new IllegalArgumentException(
           "Orchestration account username and password are required");
@@ -103,10 +105,10 @@ public final class OrchestrationAccountAuth implements HttpAuthProvider {
         || uri.getRawUserInfo() != null
         || uri.getRawQuery() != null
         || uri.getRawFragment() != null
-        || !uri.getRawPath().startsWith(apiPath)
+        || !(uri.getRawPath().startsWith(apiPath) || uri.getRawPath().equals(eventsPath))
         || !uri.normalize().getRawPath().equals(uri.getRawPath())) {
       throw new IllegalArgumentException(
-          "Account credentials are restricted to this center's PSOP API");
+          "Account credentials are restricted to this center's PSOP and execution reporting APIs");
     }
   }
 

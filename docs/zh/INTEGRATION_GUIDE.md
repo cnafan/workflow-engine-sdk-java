@@ -582,6 +582,21 @@ HostQuickStart 使用 `REGISTRY_API_TOKEN` 完成注册中心发现认证。
 中心的 401/403、TLS/网络错误、无候选结果均不会改为执行另一条工作流。
 `--a2a.local-workflow-enabled=true` 明确选择离线示例工作流，不访问中心，默认关闭，不作为生产兜底。
 
+#### 在编排中心查看 Demo 执行记录
+
+1. 确认中心已导入 Demo 的 SPN PSOP。启动 `SpringSpnDemo` 时沿用 `ORCH_URL` 和加载 PSOP 所用的中心账户及 TLS 配置。中心在返回已发布的
+   PSOP 时提供修订号和上报身份。SDK 从同一个地址派生 `/api/v1/execution-events`，复用现有鉴权和 TLS，并自动上报。
+2. Demo 按任务意图调用中心检索（`POST /api/v1/orchestrate/search`，`top_n=3`）取得 PSOP ID，再加载该 PSOP 的定义与修订号。PSOP
+   不由配置指定：写死 ID 会绕过检索，也会掩盖检索失效。无候选结果时不会改为执行另一条工作流。在线运行使用默认的非离线模式。
+   宿主只执行声明由自己执行的 PSOP。定义用 `workflow_host` 声明宿主，旧定义以 `SelfLoop` 步骤里唯一的 Agent 名代之，两者
+   都由 `Workflow.declaredHost()` 解析。候选按相关度依次检查，并使用 Workbench 本地 AgentCard 的名称校验宿主。
+   样例可按任务意图检索编排中心内置的传输工作台 SPN 示例，也可检索中心发布的其他同宿主 PSOP。
+3. 编排中心按节点回放执行状态、脱敏后的业务请求摘要、Agent 答复和宿主本地节点的文本输出。请求摘要最多 2000 字符，结果正文最多
+   12000 字符，并受单条事件大小限制。
+4. SDK 将待发送事件缓存在用户目录下的 `.openan/execution-events`，按上报地址和来源隔离。同一身份再次加载 PSOP
+   时可以继续发送积压事件。中心返回 HTTP 410 `EXECUTION_CLOSED` 时停止重试该执行。
+5. Demo 退出前按本次 `execution_id` 等待中心确认。通过 **执行中心 → 执行记录**打开该 ID 可以查看节点详情。
+
 ### 13.2 被调度智能体端点
 
 引擎只消费 AgentCard，不启动被调度智能体服务。宿主智能体负责 AgentCard 发现、端点可达性校验与开发测试资源。使用外部管理的被调度智能体时，不得在相同端点上启动本地测试服务。生产 AgentCard 和凭据应保存在仓库外部。

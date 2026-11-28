@@ -1135,8 +1135,12 @@ class DefaultWorkflowEngineClientNegotiationTest {
                 Thread.currentThread().interrupt();
                 throw new CompletionException(error);
               }
-              return List.of(
+              var events =
+                  new java.util.ArrayList<>(
+                      messageResponse(params, MessageContent.text("progress")));
+              events.add(
                   response(params, TaskState.TASK_STATE_COMPLETED, MessageContent.text("done")));
+              return events;
             });
     try (var transport =
         new A2ATransport(
@@ -1148,6 +1152,8 @@ class DefaultWorkflowEngineClientNegotiationTest {
       List<String> secondEvents = new CopyOnWriteArrayList<>();
       List<MessageContent> firstRequests = new CopyOnWriteArrayList<>();
       List<MessageContent> secondRequests = new CopyOnWriteArrayList<>();
+      List<Map<String, Object>> firstIdentities = new CopyOnWriteArrayList<>();
+      List<Map<String, Object>> secondIdentities = new CopyOnWriteArrayList<>();
 
       CompletableFuture<SendMessageResult> first =
           client.sendTask(
@@ -1158,6 +1164,10 @@ class DefaultWorkflowEngineClientNegotiationTest {
                 @Override
                 public void onEvent(String type, Map<String, Object> data) {
                   firstEvents.add(type);
+                  firstIdentities.add(
+                      Map.of(
+                          "taskId", data.getOrDefault("taskId", ""),
+                          "executionId", data.getOrDefault("executionId", "")));
                   if ("agent_request".equals(type)) {
                     firstRequests.add((MessageContent) data.get("content"));
                   }
@@ -1172,6 +1182,10 @@ class DefaultWorkflowEngineClientNegotiationTest {
                 @Override
                 public void onEvent(String type, Map<String, Object> data) {
                   secondEvents.add(type);
+                  secondIdentities.add(
+                      Map.of(
+                          "taskId", data.getOrDefault("taskId", ""),
+                          "executionId", data.getOrDefault("executionId", "")));
                   if ("agent_request".equals(type)) {
                     secondRequests.add((MessageContent) data.get("content"));
                   }
@@ -1179,8 +1193,11 @@ class DefaultWorkflowEngineClientNegotiationTest {
               });
 
       CompletableFuture.allOf(first, second).join();
-      assertEquals(List.of("agent_request", "agent_response"), firstEvents);
-      assertEquals(List.of("agent_request", "agent_response"), secondEvents);
+      assertEquals(List.of("agent_request", "agent_message_event", "agent_response"), firstEvents);
+      assertEquals(List.of("agent_request", "agent_message_event", "agent_response"), secondEvents);
+      assertEquals(firstIdentities.get(0), firstIdentities.get(1));
+      assertEquals(secondIdentities.get(0), secondIdentities.get(1));
+      assertNotEquals(firstIdentities.get(1), secondIdentities.get(1));
       assertEquals(List.of(MessageContent.text("first")), firstRequests);
       assertEquals(List.of(MessageContent.text("second")), secondRequests);
     }

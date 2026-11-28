@@ -50,8 +50,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
@@ -83,6 +85,11 @@ public class WorkflowExecutor {
   private final Observability observability;
   private volatile WorkflowObservability workflowTelemetry;
   private final String executionId = java.util.UUID.randomUUID().toString();
+
+  public String getExecutionId() {
+    return executionId;
+  }
+
   private final Map<String, Map<String, Object>> stepOutputs = new ConcurrentHashMap<>();
   private final Map<String, List<TaskExecutionResult>> stepExecutionResults =
       new ConcurrentHashMap<>();
@@ -278,6 +285,7 @@ public class WorkflowExecutor {
     // Execute all ready steps in parallel
     List<CompletableFuture<Void>> stepFutures = new ArrayList<>();
     for (int idx : readySteps) {
+      if (stopped.get()) break;
       executed.add(idx);
       var step = workflow.getSteps().get(idx);
       stepFutures.add(executeStep(step, scheduled, activated, pending, failed));
@@ -323,20 +331,46 @@ public class WorkflowExecutor {
     var workflowInput = contextBuilder.buildWorkflowInput(step, stepExecutionResults);
     List<CompletableFuture<StepResult>> futures = new ArrayList<>();
     for (int i = 0; i < step.getSubtasks().size(); i++) {
+      if (stopped.get()) break;
       final int subtaskIndex = i;
       final var task = step.getSubtasks().get(i);
       var request = buildTaskRequest(step, task, subtaskIndex, workflowInput);
       emit(
           EventType.TASK_REQUEST,
-          Map.of("step", step.getName(), "agent", task.getAgent(), "task", task.getDescription()));
+          Map.of(
+              "step",
+              step.getName(),
+              "agent",
+              task.getAgent(),
+              "task",
+              task.getDescription(),
+              "subtask_index",
+              subtaskIndex,
+              "taskId",
+              request.getTaskId()));
       CompletableFuture<TaskResult> dispatch = dispatchTask(step, request);
+      var settled = new AtomicBoolean();
       CompletableFuture<StepResult> processed =
-          dispatch
-              .thenApply(r -> processTaskResult(step, task, subtaskIndex, r))
-              .exceptionally(e -> processTaskError(step, task, subtaskIndex, e));
-      processed.whenComplete(
+          new CompletableFuture<>() {
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning) {
+              if (!settled.compareAndSet(false, true)) return false;
+              dispatch.cancel(mayInterruptIfRunning);
+              reportCancelledTask(step, task, subtaskIndex);
+              return super.cancel(mayInterruptIfRunning);
+            }
+          };
+      dispatch.whenComplete(
           (result, error) -> {
-            if (processed.isCancelled()) dispatch.cancel(true);
+            if (!settled.compareAndSet(false, true)) return;
+            try {
+              processed.complete(
+                  error == null
+                      ? processTaskResult(step, task, subtaskIndex, result, false)
+                      : processTaskError(step, task, subtaskIndex, error));
+            } catch (RuntimeException failure) {
+              processed.completeExceptionally(failure);
+            }
           });
       futures.add(processed);
     }
@@ -387,6 +421,10 @@ public class WorkflowExecutor {
     activeTasks.add(result);
     result.orTimeout(engineClient.callbackTimeoutSeconds(), java.util.concurrent.TimeUnit.SECONDS);
     result.whenComplete((value, error) -> activeTasks.remove(result));
+    if (stopped.get()) {
+      result.cancel(true);
+      return result;
+    }
     CompletableFuture.runAsync(
         () -> {
           try {
@@ -427,8 +465,8 @@ public class WorkflowExecutor {
                         WireLog.call(
                             trace,
                             () ->
-                                engineClient.sendTask(
-                                    request.getAgentName(),
+                                engineClient.sendWorkflowTask(
+                                    request,
                                     java.util.Objects.requireNonNull(
                                         content, "onTask returned null content"),
                                     negotiation ->
@@ -484,99 +522,60 @@ public class WorkflowExecutor {
     return current;
   }
 
-  private StepResult processTaskError(WorkflowStep step, Task task, int subtaskIndex, Throwable e) {
-    return processTaskResult(step, task, subtaskIndex, FailureMapping.from(e));
-  }
-
   /**
    * ANY_SUCCESS logic: iterate futures as they complete; on the first success, cancel the rest and
    * return success=true. If all fail, return success=false. Mirrors Python's asyncio.as_completed
    * loop.
    */
   private CompletableFuture<StepResult> anySuccess(List<CompletableFuture<StepResult>> futures) {
-    if (futures.isEmpty()) {
-      return CompletableFuture.completedFuture(
-          new StepResult(null, null, -1, List.of(), true, Map.of(), List.of()));
-    }
-    CompletableFuture<StepResult> result = new CompletableFuture<>();
-    int total = futures.size();
-    int[] completed = {0};
-    int[] failedCount = {0};
-    boolean[] winnerChosen = {false};
-
-    for (CompletableFuture<StepResult> f : futures) {
-      f.handle(
-          (sr, ex) -> {
-            synchronized (completed) {
-              completed[0]++;
-              boolean success = (ex == null && sr != null && sr.success());
-              if (success && !result.isDone()) {
-                winnerChosen[0] = true;
-                // Cancel all remaining
-                for (CompletableFuture<StepResult> other : futures) {
-                  if (!other.isDone()) {
-                    other.cancel(true);
-                  }
-                }
-                // Collect results from completed futures
-                List<StepResult> completedResults = new ArrayList<>();
-                for (CompletableFuture<StepResult> cf : futures) {
-                  if (cf.isDone() && !cf.isCompletedExceptionally()) {
-                    try {
-                      var r = cf.join();
-                      if (r != null && r.taskDesc() != null) {
-                        completedResults.add(r);
-                      }
-                    } catch (Exception ignored) {
-                      // Cancellation race, skip
-                    }
-                  }
-                }
-                result.complete(
-                    new StepResult(
-                        null,
-                        null,
-                        -1,
-                        List.of(),
-                        true,
-                        collectTaskResults(completedResults),
-                        collectExecutionResults(completedResults)));
-              } else if (!success && !winnerChosen[0]) {
-                failedCount[0]++;
-                if (completed[0] == total && !result.isDone()) {
-                  // All failed
-                  List<StepResult> completedResults = new ArrayList<>();
-                  for (CompletableFuture<StepResult> cf : futures) {
-                    if (cf.isDone() && !cf.isCompletedExceptionally()) {
-                      try {
-                        var r = cf.join();
-                        if (r != null && r.taskDesc() != null) {
-                          completedResults.add(r);
-                        }
-                      } catch (Exception ignored) {
-                        // Cancellation race, skip
-                      }
-                    }
-                  }
-                  result.complete(
-                      new StepResult(
-                          null,
-                          null,
-                          -1,
-                          List.of(),
-                          false,
-                          collectTaskResults(completedResults),
-                          collectExecutionResults(completedResults)));
-                }
+    var winnerChosen = new AtomicBoolean();
+    for (CompletableFuture<StepResult> task : futures) {
+      task.thenAccept(
+          result -> {
+            if (result.success() && winnerChosen.compareAndSet(false, true)) {
+              for (CompletableFuture<StepResult> other : futures) {
+                if (!other.isDone()) other.cancel(true);
               }
             }
-            return null;
           });
     }
-    return result;
+    // A task whose terminal state is already being published cannot be cancelled. Wait for
+    // that publication as well, so no task ends after the workflow's terminal event.
+    return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+        .handle(
+            (unused, error) -> {
+              List<StepResult> results =
+                  futures.stream()
+                      .filter(task -> !task.isCompletedExceptionally())
+                      .map(CompletableFuture::join)
+                      .filter(result -> result.taskDesc() != null)
+                      .toList();
+              boolean success = futures.isEmpty() || results.stream().anyMatch(StepResult::success);
+              return new StepResult(
+                  null,
+                  null,
+                  -1,
+                  List.of(),
+                  success,
+                  collectTaskResults(results),
+                  collectExecutionResults(results));
+            });
   }
 
   public CompletableFuture<ExecutionResult> run() {
+    CompletableFuture<ExecutionResult> result = start().toCompletableFuture();
+    result.whenComplete(
+        (value, error) -> {
+          if (result.isCancelled()) requestCancellation();
+        });
+    return result;
+  }
+
+  /**
+   * Starts the workflow and exposes completion after its tasks settle and publish their outcomes.
+   * Use {@link #requestCancellation()} to stop it without cancelling this completion signal.
+   */
+  public CompletionStage<ExecutionResult> start() {
     if (!started.compareAndSet(false, true))
       return CompletableFuture.failedFuture(
           new IllegalStateException("WorkflowExecutor is single-use"));
@@ -622,6 +621,7 @@ public class WorkflowExecutor {
         executeSteps(pending, scheduled, executed, activated, failed)
             .thenApply(
                 v -> {
+                  if (stopped.get()) throw new CancellationException();
                   emit(EventType.WORKFLOW_COMPLETE, Map.of("success", !failed.get()));
                   log.info(
                       "[Executor] WORKFLOW_FINISHED executionId={}, workflow={}, success={},"
@@ -653,6 +653,7 @@ public class WorkflowExecutor {
             .exceptionally(
                 e -> {
                   Throwable failure = unwrapCompletionException(e);
+                  if (stopped.get()) throw new CancellationException();
                   String message = failureMessage(failure);
                   log.error("[Executor] DAG traversal error: {}", message, failure);
                   emit(EventType.ERROR, Map.of("error", message));
@@ -675,7 +676,12 @@ public class WorkflowExecutor {
                 runTelemetry, telemetryFinished, false, unwrapCompletionException(error));
           }
         });
-    return execution;
+    return execution.minimalCompletionStage();
+  }
+
+  /** Requests that in-flight work stop. The execution stage completes after task settlement. */
+  public void requestCancellation() {
+    if (stopped.compareAndSet(false, true)) activeTasks.forEach(task -> task.cancel(true));
   }
 
   private CompletableFuture<Void> executeStep(
@@ -692,6 +698,7 @@ public class WorkflowExecutor {
     return executeSubtasks(step)
         .thenCompose(
             result -> {
+              if (stopped.get()) return CompletableFuture.completedFuture(null);
               stepOutputs.put(step.getName(), result.results());
               stepExecutionResults.put(step.getName(), result.taskResults());
               if (!result.success()) {
@@ -777,9 +784,44 @@ public class WorkflowExecutor {
     }
   }
 
+  private StepResult processTaskError(
+      WorkflowStep step, Task task, int subtaskIndex, Throwable error) {
+    Throwable cause = unwrapCompletionException(error);
+    // A dispatch that was cancelled ends as cancelled, like a task cancelled with its step.
+    return processTaskResult(
+        step,
+        task,
+        subtaskIndex,
+        FailureMapping.from(cause),
+        cause instanceof CancellationException);
+  }
+
+  /**
+   * Reports a started task that was cancelled before it produced a result. Every task that began is
+   * reported as ended exactly once, so no consumer is left with a task that never finishes.
+   */
+  private void reportCancelledTask(WorkflowStep step, Task task, int subtaskIndex) {
+    processTaskResult(
+        step,
+        task,
+        subtaskIndex,
+        FailureMapping.from(
+            new CancellationException("Task cancelled before it produced a result")),
+        true);
+  }
+
+  /**
+   * Reports a task's end and, when the task produced a result, records it as part of the run's. A
+   * cancelled task is reported but not recorded: it contributed nothing to the outcome.
+   */
   private StepResult processTaskResult(
-      WorkflowStep step, Task task, int subtaskIndex, TaskResult response) {
-    task.setStatus(response.isSuccess() ? TaskStatus.SUCCESS : TaskStatus.FAILED);
+      WorkflowStep step, Task task, int subtaskIndex, TaskResult response, boolean cancelled) {
+    task.setStatus(
+        cancelled
+            ? TaskStatus.CANCELLED
+            : response.isSuccess() ? TaskStatus.SUCCESS : TaskStatus.FAILED);
+    String status = task.getStatus().getValue();
+    String taskId = taskId(step.getName(), subtaskIndex);
     emit(
         EventType.TASK_STATUS_CHANGED,
         Map.of(
@@ -789,87 +831,88 @@ public class WorkflowExecutor {
             subtaskIndex,
             "agent",
             task.getAgent(),
+            "taskId",
+            taskId,
             "status",
-            task.getStatus().getValue()));
-    String status = response.isSuccess() ? "success" : "failed";
+            status));
     log.info(
         "[Executor] Task executionId={}, step={}, taskId={}, agent={}, status={}",
         executionId,
         step.getName(),
-        taskId(step.getName(), subtaskIndex),
+        taskId,
         task.getAgent(),
         status);
-    if (!response.isSuccess()) {
+    if (cancelled) {
+      log.info(
+          "[Executor] TASK_CANCELLED executionId={}, step={}, taskId={}, agent={}",
+          executionId,
+          step.getName(),
+          taskId,
+          task.getAgent());
+    } else if (!response.isSuccess()) {
       log.warn(
           "[Executor] TASK_FAILED executionId={}, step={}, taskId={}, agent={}, errorCode={},"
               + " reason={}",
           executionId,
           step.getName(),
-          taskId(step.getName(), subtaskIndex),
+          taskId,
           task.getAgent(),
           response.getErrorCode(),
           SensitiveDataRedactor.redact(response.getError())
               .replace("\r", "\\r")
               .replace("\n", "\\n"));
     }
-    List<Object> outputs = response.getOutputs();
-    executionHistory.add(
-        Map.of(
-            "step",
-            step.getName(),
-            "subtask_index",
-            subtaskIndex,
-            "task",
-            task.getDescription(),
-            "agent",
-            task.getAgent(),
-            "status",
-            status,
-            "taskId",
-            taskId(step.getName(), subtaskIndex),
-            "outputs",
-            outputs,
-            "error",
-            response.getError() == null ? "" : response.getError(),
-            "errorCode",
-            response.getErrorCode() == null ? "" : response.getErrorCode(),
-            "errorDetails",
-            response.getErrorDetails()));
+    List<Object> outputs = cancelled ? List.of() : response.getOutputs();
+    if (!cancelled) {
+      executionHistory.add(
+          Map.of(
+              "step",
+              step.getName(),
+              "subtask_index",
+              subtaskIndex,
+              "task",
+              task.getDescription(),
+              "agent",
+              task.getAgent(),
+              "status",
+              status,
+              "taskId",
+              taskId,
+              "outputs",
+              outputs,
+              "error",
+              response.getError() == null ? "" : response.getError(),
+              "errorCode",
+              response.getErrorCode() == null ? "" : response.getErrorCode(),
+              "errorDetails",
+              response.getErrorDetails()));
+    }
     emit(
         EventType.TASK_RESPONSE,
-        Map.of(
-            "step",
-            step.getName(),
-            "subtask_index",
-            subtaskIndex,
-            "agent",
-            task.getAgent(),
-            "task",
-            task.getDescription(),
-            "outputs",
-            outputs,
-            "success",
-            response.isSuccess(),
-            "taskId",
-            taskId(step.getName(), subtaskIndex),
-            "error",
-            response.getError() == null ? "" : response.getError(),
-            "errorCode",
-            response.getErrorCode() == null ? "" : response.getErrorCode(),
-            "errorDetails",
-            response.getErrorDetails()));
+        Map.ofEntries(
+            Map.entry("step", step.getName()),
+            Map.entry("subtask_index", subtaskIndex),
+            Map.entry("agent", task.getAgent()),
+            Map.entry("task", task.getDescription()),
+            Map.entry("outputs", outputs),
+            Map.entry("success", response.isSuccess() && !cancelled),
+            Map.entry("status", status),
+            Map.entry("taskId", taskId),
+            Map.entry("error", response.getError() == null ? "" : response.getError()),
+            Map.entry("errorCode", response.getErrorCode() == null ? "" : response.getErrorCode()),
+            Map.entry("errorDetails", response.getErrorDetails())));
     return new StepResult(
         task.getDescription(),
         task.getAgent(),
         subtaskIndex,
         outputs,
-        response.isSuccess(),
+        response.isSuccess() && !cancelled,
         null,
         List.of(
             new TaskExecutionResult(
                 task.getAgent(),
                 task.getSkill(),
-                taskId(step.getName(), subtaskIndex),
+                taskId,
                 task.getDescription(),
                 task.getStatus(),
                 outputs,

@@ -148,6 +148,14 @@ class ObservedHttpClientTest {
   // 断言点: 返回值/状态断言
   // 防回归: 若对应行为被改变，本用例失败
   @Test
+  void pureSseCommentsAreDistinctFromBusinessEventsAndControlFields() {
+    assertTrue(WireLog.isSseCommentFrame(": ping\r\n: keep-alive\r\n\r\n"));
+    assertFalse(WireLog.isSseCommentFrame(": ping\ndata: delivered\n\n"));
+    assertFalse(WireLog.isSseCommentFrame("retry: 100\r\n\r\n"));
+    assertFalse(WireLog.isSseCommentFrame("id: 7\n\n"));
+  }
+
+  @Test
   void rawSseCommentRefreshesTransportActivityWithoutNeedingADataEvent() throws Exception {
     AtomicInteger activities = new AtomicInteger();
     HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);

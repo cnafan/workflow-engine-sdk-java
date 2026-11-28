@@ -2,6 +2,72 @@
 
 ## [Unreleased]
 
+- The demo tests no longer depend on the ports checked into the agent cards and the credentials file. Both rewrote
+  those files by replacing the fixed default port as text, so a developer who moved the demo ports made the rewrite
+  silently do nothing: one test stopped rejecting a non-local endpoint, and the end-to-end demo left its login URLs
+  aimed at ports the test does not own. Each URL is now rebuilt from its own scheme and path with only the authority
+  replaced, so the tests pass whatever ports the working tree uses.
+- The workbench reads ten ranked candidates instead of three, and a candidate that declares this host beats one that
+  declares nothing. Retrieval ranks with a language model, so its top three is not stable: measured on a shared catalog,
+  one run ranked a generic generated workflow above the SPN PSOP, the host accepted it because it declares no host, and
+  the run failed on an agent the host does not run. Loading a candidate is cheap, so the host now reasons over a wider
+  window and still refuses every candidate declared for another host.
+- The execution observation sender no longer reports a dropped connection as an unreadable spool. A batch is read
+  under the same lock the writer takes, so a file cannot be observed half-replaced, and a transport failure thrown by
+  the HTTP send is rethrown unchecked and retried after one second, with a log line that names the connection instead
+  of the spool. A real spool failure still retries, and the wording now says it may be the acknowledgement, not the read.
+- SpringSpnDemo logs the workbench endpoint its AgentCard advertises instead of a fixed 26337, so changing the card
+  port no longer leaves a log line pointing at a URL the demo never calls.
+- Every task that starts is reported as ended exactly once, with success, failure or cancellation. A task
+  cancelled while it was working, as `ANY_SUCCESS` does to the tasks that did not win, used to report no end at
+  all, which left a consumer with a task that never finished. `task_response` now carries a `status` of `success`,
+  `failed` or `cancelled` next to its `success` flag, `task_status_changed` reports the new `TaskStatus.CANCELLED`,
+  and a cancelled task takes no place in the run's history because it produced no result. Execution reporting
+  maps it to the outcome `cancelled` instead of passing it off as a failure.
+- A loaded PSOP keeps the host it declares: `Workflow.getWorkflowHost()` and `Workflow.declaredHost()`. The declaration
+  is `workflow_host`, or for older definitions the single agent named by their `SelfLoop` tasks, which the center reads
+  as the host; a definition that names two hosts is refused, as it is by the center. A host that selects PSOPs by intent
+  uses it to run only what it is declared to execute. The Spring Workbench checks its local AgentCard name: candidates
+  are considered in rank order, one declared for another host is skipped with a log line, and when none is left the
+  demo fails naming each candidate's host rather than running a workflow written for someone else.
+- Building an event's content is writer work, never execution work. Walking outputs, redacting values, joining answers
+  and truncating summaries now run on the writer thread, so a huge output costs the workflow nothing; the execution
+  thread only queues identity and keeps references. A test records which thread walks the outputs and fails if the
+  execution ever does it again.
+- Reporting can never decide whether a run happens or what a host sees. The execution now reaches
+  a reporter through a small `ObservationSink` seam and guards every call it makes: a failure to
+  start reporting leaves the run unreported, a failure while capturing one event loses only that
+  report (the event still reaches the host), and a failure reporting the outcome cannot break the
+  completion chain. A test substitutes a failing sink to prove the run's result and event stream
+  are identical without reporting.
+- PSOP retrieval gets a longer response deadline than a load. The center ranks its whole catalog with a language model,
+  so one search takes tens of seconds: measured against a 20-PSOP catalog, searches took 19-47 seconds and a third of
+  them ran past the 30-second deadline a storage read allows, so the demo's retrieval failed intermittently.
+  `LoadPsop.search` now defaults to a 120-second read deadline while `load` keeps 30 seconds; the explicit `Timeouts`
+  overloads are unchanged.
+- The Spring Workbench reuses its orchestration center connection for execution reporting and automatically captures
+  redacted request and result summaries for node replay. Hosts using the lower-level `ExecutionReporter` can select
+  their own capture policy with `ContentCapture`.
+- Automatic reporting keeps the readable answer and never guesses at structured outputs: it uses
+  `ContentCapture.summaries()`, because the center's contract requires the application to name every output key it is
+  willing to share. A host that wants structured replay opts in with
+  `new ContentCapture(12000, Set.of("conclusion"))` or `ContentCapture.all()`.
+- An event that a task made too large is trimmed by decreasing value (bulky outputs, the rest of the outputs, then the
+  summary) until it fits the center's limit, so a node never loses its identity, outcome or a short conclusion to a size
+  rejection.
+- Execution reporting explains itself: whether it is enabled (and why not), each confirmed execution, and every refused
+  batch with the center's status and reason code. A conflict no retry can resolve (`SEQUENCE_OR_EVENT_ID_CONFLICT`,
+  `EXECUTION_CLOSED`, `OWNER_MISMATCH`, ...)
+  sets the run aside as rejected once instead of being retried forever, and records the center's reason in the rejection
+  receipt. `CenterExecutionReporting` takes an optional spool directory, honours `OPENAN_EXECUTION_SPOOL` and
+  `OPENAN_EXECUTION_INSTANCE` (system property first, then environment variable) for the default one, and exposes
+  `isEnabled()`. The instance name gives each host process of the same account its own queue, so a second process starts
+  instead of failing to own the first one's spool.
+- `ContentCapture` is now a top-level class in `dev.openan.workflow.engine.runner` (it was nested in
+  `ExecutionReporter`) and owns everything about reported content: the policy, which engine values are safe to disclose,
+  and how an oversized event is trimmed. Write
+  `ContentCapture.all()` instead of `ExecutionReporter.ContentCapture.all()`. It has the same shape as the Python SDK's
+  `ContentCapture`, so the two SDKs read the same way.
 - Keep the SPN workbench's notification subscription active across recovery results;
   business observers no longer trigger automatic result-based cancellation.
 - Keep Notification-T subscriptions open independently of task/result terminal states; maintain

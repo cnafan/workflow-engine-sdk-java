@@ -36,9 +36,9 @@ public interface HttpAuthProvider {
   Map<String, String> headers(URI requestUri);
 
   /**
-   * Allows one credential refresh after a rejected PSOP read/search. The headers are those actually
-   * sent, so implementations can avoid invalidating a newer token acquired by another thread.
-   * Defaults to no retry; this hook is never used to replay business writes.
+   * Allows one credential refresh after a rejected PSOP read/search or idempotent observation
+   * batch. The headers are those actually sent, so implementations can avoid invalidating a newer
+   * token acquired by another thread. Defaults to no retry.
    */
   default boolean onUnauthorized(URI requestUri, Map<String, String> rejectedHeaders) {
     return false;
