@@ -135,7 +135,7 @@ class ExecutionReporterContentTest {
               "outputs",
               List.of("Aggregate: City1 is the site of the fault")));
       run.finish("succeeded");
-      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(10)));
+      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(30)));
 
       JsonNode finished = await(received, "task.finished.v1");
       JsonNode data = finished.get("data");
@@ -205,7 +205,7 @@ class ExecutionReporterContentTest {
               "outputs",
               List.of(Map.of("conclusion", "fault on City1"))));
       run.finish("succeeded");
-      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(10)));
+      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(30)));
 
       JsonNode finished = await(received, "task.finished.v1");
       JsonNode data = finished.get("data");
@@ -253,7 +253,7 @@ class ExecutionReporterContentTest {
       second.observe("task_response", with(identity("diagnose", 0, "task-1"), "success", true));
       second.finish("succeeded");
       first.finish("succeeded");
-      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(10)));
+      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(30)));
 
       assertEquals(
           "City1 Los",
@@ -389,7 +389,7 @@ class ExecutionReporterContentTest {
       payload.put("outputs", List.of(outputs));
       run.observe("task_response", payload);
       run.finish("succeeded");
-      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(10)));
+      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(30)));
 
       JsonNode finished = await(received, "task.finished.v1");
       JsonNode data = finished.get("data");
@@ -450,7 +450,7 @@ class ExecutionReporterContentTest {
       payload.put("outputs", outputs);
       run.observe("task_response", payload);
       run.finish("succeeded");
-      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(10)));
+      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(30)));
 
       JsonNode data = await(received, "task.finished.v1").get("data");
       assertEquals("fault on City1", data.get("result").get("outputs").get("conclusion").asText());
@@ -491,7 +491,7 @@ class ExecutionReporterContentTest {
               "outputs",
               List.of()));
       run.finish("succeeded");
-      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(10)));
+      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(30)));
 
       assertEquals(
           "cancelled",
@@ -521,7 +521,7 @@ class ExecutionReporterContentTest {
           "task_response",
           with(identity("diagnose", 0, "task-1"), "success", true, "response", text));
       run.finish("succeeded");
-      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(10)));
+      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(30)));
       return await(received, "task.finished.v1").get("data").get("result").get("summary").asText();
     } finally {
       http.stop(0);
@@ -566,8 +566,23 @@ class ExecutionReporterContentTest {
     return data;
   }
 
+  /**
+   * Serves every exchange on its own thread. The default executor handles one at a time, so the
+   * reporter's keep-alive connection can otherwise hold up the batch that follows it.
+   */
+  private static void serveConcurrently(HttpServer http) {
+    http.setExecutor(
+        java.util.concurrent.Executors.newCachedThreadPool(
+            runnable -> {
+              Thread thread = new Thread(runnable, "stub-center");
+              thread.setDaemon(true);
+              return thread;
+            }));
+  }
+
   private static HttpServer stubCenter(LinkedBlockingQueue<JsonNode> received) throws Exception {
     HttpServer http = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    serveConcurrently(http);
     http.createContext(
         "/events",
         exchange -> {

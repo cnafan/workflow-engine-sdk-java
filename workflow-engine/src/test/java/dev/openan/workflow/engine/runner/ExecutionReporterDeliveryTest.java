@@ -195,7 +195,7 @@ class ExecutionReporterDeliveryTest {
       assertEquals(DeliveryStatus.REJECTED, reporter.awaitDelivery(old, Duration.ofSeconds(5)));
       assertEquals(
           DeliveryStatus.ACKNOWLEDGED, reporter.awaitDelivery(current, Duration.ofSeconds(5)));
-      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(2)));
+      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(10)));
       assertEquals(1, rejectedCalls.get());
       assertEquals(0, unexpectedCalls.get());
       assertTrue(Files.isRegularFile(oldRoot.resolve("0000000000000001.json")));
@@ -437,7 +437,7 @@ class ExecutionReporterDeliveryTest {
     try (var reporter = reporter(server, "/events", spool)) {
       finish(reporter, id);
       assertEquals(DeliveryStatus.REJECTED, reporter.awaitDelivery(id, Duration.ofSeconds(5)));
-      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(2)), "the outbox must drain");
+      assertTrue(reporter.awaitDelivery(Duration.ofSeconds(10)), "the outbox must drain");
       assertEquals(1, attempts.get(), "one attempt, then the run is set aside");
       try (var files = Files.walk(spool)) {
         assertTrue(
@@ -450,7 +450,23 @@ class ExecutionReporterDeliveryTest {
   }
 
   private static HttpServer server() throws IOException {
-    return HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    HttpServer http = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    serveConcurrently(http);
+    return http;
+  }
+
+  /**
+   * Serves every exchange on its own thread. The default executor handles one at a time, so the
+   * reporter's keep-alive connection can otherwise hold up the batch that follows it.
+   */
+  private static void serveConcurrently(HttpServer http) {
+    http.setExecutor(
+        java.util.concurrent.Executors.newCachedThreadPool(
+            runnable -> {
+              Thread thread = new Thread(runnable, "stub-center");
+              thread.setDaemon(true);
+              return thread;
+            }));
   }
 
   private static ExecutionReporter reporter(HttpServer server, String path, Path spool)
