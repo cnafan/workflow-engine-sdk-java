@@ -29,6 +29,8 @@ import dev.openan.workflow.engine.examples.agents.SpnDomainAgentCity1Executor;
 import dev.openan.workflow.engine.examples.agents.SpnDomainAgentCity2Executor;
 import dev.openan.workflow.engine.examples.server.OmcAgentLauncher;
 import dev.openan.workflow.engine.examples.util.EnvResolver;
+import dev.openan.workflow.engine.examples.workbench.WorkbenchAgentCatalog;
+import dev.openan.workflow.engine.examples.workbench.SpringWorkbenchExecutor;
 import dev.openan.workflow.engine.examples.workbench.SpringWorkbenchExtensionLifecycle;
 import dev.openan.workflow.engine.model.SendMessageResult;
 import dev.openan.workflow.engine.spring.A2AController;
@@ -86,6 +88,32 @@ public class SpringSpnDemo {
     return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
   }
 
+  static java.util.Map<String, Object> demoProperties(boolean demoNegotiation) {
+    var defaults = new java.util.HashMap<String, Object>();
+    defaults.put("a2a.demo-negotiation-enabled", demoNegotiation);
+    defaults.put("a2a.spn-demo", true);
+    return defaults;
+  }
+
+  private static String executionId(SendMessageResult result) {
+    var metadata = result.getMetadata();
+    return metadata != null
+            && metadata.get(SpringWorkbenchExecutor.EXECUTION_ID_METADATA) instanceof String id
+        ? id
+        : null;
+  }
+
+  /** The endpoint the workbench card advertises, so the log names what is actually called. */
+  private static String workbenchEndpoint() {
+    return new WorkbenchAgentCatalog()
+        .load()
+        .stream()
+        .filter(card -> WB_AGENT_NAME.equals(card.name()))
+        .map(card -> card.supportedInterfaces().get(0).url())
+        .findFirst()
+        .orElse("(no workbench card)");
+  }
+
   public void run(String... applicationArgs) throws Exception {
     long demoStarted = System.nanoTime();
     ConfigurableApplicationContext ctx = null;
@@ -99,8 +127,7 @@ public class SpringSpnDemo {
         demoNegotiation,
         System.getProperty("a2at.samples.negotiation.city", "city1"));
     log.info(
-        "[Demo] START mode=direct, embeddedOmc={}, workbench=https://127.0.0.1:26337/a2a/json",
-        embeddedOmc);
+        "[Demo] START mode=direct, embeddedOmc={}, workbench={}", embeddedOmc, workbenchEndpoint());
     try {
       long stageStarted;
       if (embeddedOmc) {
@@ -122,14 +149,14 @@ public class SpringSpnDemo {
       log.info("[Demo] STAGE_START stage=start-spring-workbench");
       SpringApplication application = new SpringApplication(SpringWorkbenchApplication.class);
       application.addInitializers(
-          context ->
-              context
-                  .getEnvironment()
-                  .getPropertySources()
-                  .addFirst(
-                      new org.springframework.core.env.MapPropertySource(
-                          "spnDemoNegotiation",
-                          java.util.Map.of("a2a.demo-negotiation-enabled", demoNegotiation))));
+          context -> {
+            var environment = context.getEnvironment();
+            environment
+                .getPropertySources()
+                .addFirst(
+                    new org.springframework.core.env.MapPropertySource(
+                        "spnDemo", demoProperties(demoNegotiation)));
+          });
       ctx = application.run(applicationArgs);
       log.info(
           "[Demo] STAGE_DONE stage=start-spring-workbench, elapsedMs={}",
@@ -142,7 +169,21 @@ public class SpringSpnDemo {
           SpnCasePrompts.TASK_TEXT.length());
       log.debug("[Demo] Workbench task text={}", SpnCasePrompts.TASK_TEXT);
       SendMessageResult result = sendTaskToWorkbench();
-      requireCompleted(result);
+      var workbench = ctx.getBean(SpringWorkbenchExecutor.class);
+      try {
+        requireCompleted(result);
+      } catch (IllegalStateException taskFailure) {
+        try {
+          String id = executionId(result);
+          if (id != null) workbench.flushExecutionReporting(id, java.time.Duration.ofSeconds(15));
+        } catch (InterruptedException reportingFailure) {
+          Thread.currentThread().interrupt();
+          taskFailure.addSuppressed(reportingFailure);
+        } catch (RuntimeException reportingFailure) {
+          taskFailure.addSuppressed(reportingFailure);
+        }
+        throw taskFailure;
+      }
       String response = result.getText();
       log.info(
           "[Demo] STAGE_DONE stage=send-workbench-task, responseChars={}, elapsedMs={}",
@@ -153,6 +194,7 @@ public class SpringSpnDemo {
       } else {
         log.warn("[Demo] Workbench returned no response text");
       }
+      workbench.flushExecutionReporting(executionId(result), java.time.Duration.ofSeconds(15));
       success = true;
       // Task result is already final. This bounded observation only keeps the local
       // demonstration alive long enough to show its independent recovery notification.
@@ -220,17 +262,17 @@ public class SpringSpnDemo {
     long started = System.nanoTime();
     AgentCard wbCard =
         OmcAgentLauncher.cardFromResource("agentcard/transport_workbench_agent.json");
-    String credPath = OmcAgentLauncher.resourcePath("spn_agent_credentials.json");
     String envPath = EnvResolver.resolveEnvPath();
+    var clientConfig = WorkflowEngineClientConfig.builder().sslVerify(false);
+    if (wbCard.securitySchemes() != null
+        && !wbCard.securitySchemes().isEmpty()
+        && wbCard.securityRequirements() != null
+        && !wbCard.securityRequirements().isEmpty()) {
+      clientConfig.credentialsConfigPath(
+          OmcAgentLauncher.resourcePath("spn_agent_credentials.json"));
+    }
 
-    A2ATransport transport =
-        new A2ATransport(
-            List.of(wbCard),
-            null,
-            WorkflowEngineClientConfig.builder()
-                .sslVerify(false)
-                .credentialsConfigPath(credPath)
-                .build());
+    A2ATransport transport = new A2ATransport(List.of(wbCard), null, clientConfig.build());
     DefaultWorkflowEngineClient client = new DefaultWorkflowEngineClient(transport);
     try {
       log.info(

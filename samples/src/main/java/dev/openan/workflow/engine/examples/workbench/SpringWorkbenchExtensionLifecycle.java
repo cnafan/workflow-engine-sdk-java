@@ -121,6 +121,7 @@ public final class SpringWorkbenchExtensionLifecycle {
       dev.openan.workflow.engine.model.ReceivedMessage received) {
     if (dev.openan.workflow.engine.examples.extension.RecoveryNotification.hasCompletedResult(
         received)) firstRecovery.complete(null);
+    if (Boolean.TRUE.equals(received.taskMetadata().get("notificationHeartbeat"))) return;
     log.info(
         "[Notification] EVENT scope=workbench, agent={}, artifacts={}",
         handle.agentName(),

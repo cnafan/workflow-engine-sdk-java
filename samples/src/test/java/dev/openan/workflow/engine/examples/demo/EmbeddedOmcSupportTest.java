@@ -87,10 +87,14 @@ class EmbeddedOmcSupportTest {
 
   private AgentCard card(String city, String address) throws Exception {
     try (var input = getClass().getResourceAsStream("/agentcard/spn_domain_agent_" + city + ".json")) {
-      String json = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-      json = json.replace(city.equals("city1") ? "127.0.0.1:26335" : "127.0.0.1:26336", address);
-      return new com.fasterxml.jackson.databind.ObjectMapper()
-          .registerModule(new AgentCardJacksonModule()).readValue(json, AgentCard.class);
+      var mapper = new com.fasterxml.jackson.databind.ObjectMapper()
+          .registerModule(new AgentCardJacksonModule());
+      var card = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(input);
+      var iface = (com.fasterxml.jackson.databind.node.ObjectNode) card.path("supportedInterfaces").get(0);
+      // The checked-in port is a developer's local choice; only the authority comes from the test.
+      var checkedIn = java.net.URI.create(iface.path("url").asText());
+      iface.put("url", checkedIn.getScheme() + "://" + address + checkedIn.getPath());
+      return mapper.treeToValue(card, AgentCard.class);
     }
   }
 }

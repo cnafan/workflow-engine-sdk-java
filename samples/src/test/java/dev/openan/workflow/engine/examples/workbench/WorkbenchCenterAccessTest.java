@@ -28,7 +28,11 @@ import dev.openan.workflow.engine.registry.HttpServiceException;
 import dev.openan.workflow.engine.registry.TlsPolicy;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -116,6 +120,100 @@ class WorkbenchCenterAccessTest {
     assertEquals(3, orchestrator.resolveWorkflow("intent").workflow().getSteps().size());
     assertThrows(
         Exception.class, () -> orchestrator("http://127.0.0.1:1", false).resolveWorkflow("intent"));
+  }
+
+  private static final String HOSTLESS =
+      "{\"id\":\"hostless\",\"name\":\"Hostless\",\"steps\":[]}";
+  private static final String OTHER_HOST =
+      "{\"id\":\"other\",\"name\":\"Other\",\"workflow_host\":\"Other Host\",\"steps\":[]}";
+  private static final String LEGACY =
+      """
+      {"id":"legacy","name":"Legacy","steps":[{"name":"merge","step_type":"SelfLoop",
+       "subtasks":[{"agent":"Host Agent","description":"summarise"}]}]}
+      """;
+
+  @Test
+  void aPsopDeclaredForAnotherHostIsSkippedForTheNextCandidate() throws Exception {
+    var server = catalog(List.of("other", "hostless"), Map.of("other", OTHER_HOST, "hostless", HOSTLESS));
+    try {
+      assertEquals("hostless", orchestrator(server, Set.of()).resolveWorkflow("intent").psopId());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  void noCandidateExecutedByThisHostFailsNamingEachDeclaredHost() throws Exception {
+    var server = catalog(List.of("other"), Map.of("other", OTHER_HOST));
+    try {
+      var failure =
+          assertThrows(
+              IllegalStateException.class,
+              () -> orchestrator(server, Set.of()).resolveWorkflow("intent"));
+      assertTrue(failure.getMessage().contains("other"), failure.getMessage());
+      assertTrue(failure.getMessage().contains("Other Host"), failure.getMessage());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  void aLegacySelfLoopHostIsHonouredOnlyWhenThisHostServesIt() throws Exception {
+    var server = catalog(List.of("legacy"), Map.of("legacy", LEGACY));
+    try {
+      var failure =
+          assertThrows(
+              IllegalStateException.class,
+              () -> orchestrator(server, Set.of("Transport Workbench Agent")).resolveWorkflow("intent"));
+      assertTrue(failure.getMessage().contains("Host Agent"), failure.getMessage());
+      assertEquals(
+          "legacy", orchestrator(server, Set.of("Host Agent")).resolveWorkflow("intent").psopId());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  /** A center that ranks {@code ranked} and answers each load with the definition given for it. */
+  private static HttpServer catalog(List<String> ranked, Map<String, String> definitions)
+      throws Exception {
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          exchange.getRequestBody().readAllBytes();
+          String path = exchange.getRequestURI().getPath();
+          String body =
+              path.endsWith("/search")
+                  ? "{\"data\":["
+                      + ranked.stream()
+                          .map(id -> "{\"workflow_id\":\"" + id + "\",\"score\":1.0}")
+                          .collect(Collectors.joining(","))
+                      + "]}"
+                  : "{\"status\":\"success\",\"data\":"
+                      + definitions.get(path.substring(path.lastIndexOf('/') + 1))
+                      + "}";
+          byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+          exchange.sendResponseHeaders(200, bytes.length);
+          try (var output = exchange.getResponseBody()) {
+            output.write(bytes);
+          } finally {
+            exchange.close();
+          }
+        });
+    server.start();
+    return server;
+  }
+
+  private static WorkbenchOrchestrator orchestrator(HttpServer server, Set<String> servedHosts) {
+    return new WorkbenchOrchestrator(
+        "http://127.0.0.1:" + server.getAddress().getPort(),
+        null,
+        false,
+        null,
+        null,
+        null,
+        new WorkbenchOrchestrator.CenterAccess(
+            HttpAuthProvider.bearer("center.token"), TlsPolicy.strict(), false, servedHosts));
   }
 
   private static WorkbenchOrchestrator orchestrator(String url, boolean local) {
