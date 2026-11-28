@@ -19,7 +19,9 @@ a2at:
     path-prefix: /a2a/json
 
 a2a:
-  orch-url: https://127.0.0.1:5001
+  orch-url: ${ORCH_URL:https://127.0.0.1:5001}
+  # The PSOP is retrieved from the task's intent, never pinned here: a configured id would
+  # bypass the search this demo exists to exercise.
   # Center HTTP credentials/TLS are independent of agent credentials/TLS.
   # Use the same account as the login page. Password comes from an external secret.
   orch-username: ${ORCH_USERNAME:}

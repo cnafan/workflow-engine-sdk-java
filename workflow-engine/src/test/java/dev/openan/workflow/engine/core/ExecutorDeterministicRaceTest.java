@@ -60,7 +60,9 @@ class ExecutorDeterministicRaceTest {
   // 防回归: 若对应行为被改变，本用例失败
   @Test
   void synchronousSendThrowFailsStep() {
-    WorkflowEngineClient throwing = org.mockito.Mockito.mock(WorkflowEngineClient.class);
+    WorkflowEngineClient throwing =
+        org.mockito.Mockito.mock(
+            WorkflowEngineClient.class, org.mockito.Mockito.CALLS_REAL_METHODS);
     org.mockito.Mockito.when(throwing.callbackTimeoutSeconds()).thenReturn(60L);
     org.mockito.Mockito.when(
             throwing.sendTask(
@@ -86,7 +88,9 @@ class ExecutorDeterministicRaceTest {
   @Test
   void failingTaskCancelsPendingSend() throws Exception {
     CompletableFuture<SendMessageResult> pending = new CompletableFuture<>();
-    WorkflowEngineClient slow = org.mockito.Mockito.mock(WorkflowEngineClient.class);
+    WorkflowEngineClient slow =
+        org.mockito.Mockito.mock(
+            WorkflowEngineClient.class, org.mockito.Mockito.CALLS_REAL_METHODS);
     org.mockito.Mockito.when(slow.callbackTimeoutSeconds()).thenReturn(1L);
     AtomicReference<CompletableFuture<SendMessageResult>> captured = new AtomicReference<>();
     org.mockito.Mockito.when(
@@ -131,7 +135,9 @@ class ExecutorDeterministicRaceTest {
             .onTask(request -> prepared)
             .onSelfTask(request -> CompletableFuture.completedFuture(TaskResult.success(List.of())))
             .build();
-    WorkflowEngineClient slow = org.mockito.Mockito.mock(WorkflowEngineClient.class);
+    WorkflowEngineClient slow =
+        org.mockito.Mockito.mock(
+            WorkflowEngineClient.class, org.mockito.Mockito.CALLS_REAL_METHODS);
     org.mockito.Mockito.when(slow.callbackTimeoutSeconds()).thenReturn(1L);
     WorkflowExecutor executor =
         new WorkflowExecutor(
@@ -160,7 +166,9 @@ class ExecutorDeterministicRaceTest {
   void anySuccessWinnerCancelsLosers() throws Exception {
     CompletableFuture<SendMessageResult> loserA = new CompletableFuture<>();
     CompletableFuture<SendMessageResult> loserB = new CompletableFuture<>();
-    WorkflowEngineClient scripted = org.mockito.Mockito.mock(WorkflowEngineClient.class);
+    WorkflowEngineClient scripted =
+        org.mockito.Mockito.mock(
+            WorkflowEngineClient.class, org.mockito.Mockito.CALLS_REAL_METHODS);
     org.mockito.Mockito.when(scripted.callbackTimeoutSeconds()).thenReturn(60L);
     AtomicReference<CompletableFuture<SendMessageResult>> first = new AtomicReference<>();
     AtomicReference<CompletableFuture<SendMessageResult>> second = new AtomicReference<>();
@@ -234,7 +242,9 @@ class ExecutorDeterministicRaceTest {
   // 防回归: 若对应行为被改变，本用例失败
   @Test
   void anySuccessAllFailedAggregatesFailures() {
-    WorkflowEngineClient failing = org.mockito.Mockito.mock(WorkflowEngineClient.class);
+    WorkflowEngineClient failing =
+        org.mockito.Mockito.mock(
+            WorkflowEngineClient.class, org.mockito.Mockito.CALLS_REAL_METHODS);
     org.mockito.Mockito.when(failing.callbackTimeoutSeconds()).thenReturn(60L);
     org.mockito.Mockito.when(
             failing.sendTask(
@@ -267,7 +277,9 @@ class ExecutorDeterministicRaceTest {
   // 防回归: 若对应行为被改变，本用例失败
   @Test
   void engineClientGetTaskDelegation() throws Exception {
-    WorkflowEngineClient client = org.mockito.Mockito.mock(WorkflowEngineClient.class);
+    WorkflowEngineClient client =
+        org.mockito.Mockito.mock(
+            WorkflowEngineClient.class, org.mockito.Mockito.CALLS_REAL_METHODS);
     SendMessageResult canned =
         SendMessageResult.builder().taskState("TASK_STATE_COMPLETED").text("ok").build();
     org.mockito.Mockito.when(client.getTask("A", "t-1"))

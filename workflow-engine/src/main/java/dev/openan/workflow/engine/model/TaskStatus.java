@@ -24,7 +24,9 @@ public enum TaskStatus {
   PENDING("pending"),
   RUNNING("running"),
   SUCCESS("success"),
-  FAILED("failed");
+  FAILED("failed"),
+  /** The task was started and then cancelled before it produced a result. */
+  CANCELLED("cancelled");
 
   private final String value;
 

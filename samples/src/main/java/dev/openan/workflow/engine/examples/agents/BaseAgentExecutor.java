@@ -45,12 +45,18 @@ public abstract class BaseAgentExecutor implements AgentExecutor {
   }
 
   public static Message buildStatusMessage(String contextId, String taskId, String text) {
+    return buildStatusMessage(contextId, taskId, text, java.util.Map.of());
+  }
+
+  protected static Message buildStatusMessage(
+      String contextId, String taskId, String text, java.util.Map<String, Object> metadata) {
     return Message.builder()
         .messageId(UUID.randomUUID().toString())
         .contextId(contextId)
         .taskId(taskId)
         .role(Message.Role.ROLE_AGENT)
         .parts(new TextPart(text))
+        .metadata(metadata)
         .build();
   }
 }

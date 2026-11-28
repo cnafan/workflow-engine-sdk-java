@@ -19,17 +19,50 @@
 
 package dev.openan.workflow.engine.examples.demo;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.openan.workflow.engine.examples.testsupport.OfflineA2ATLlmClient;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 /** Runs the actual northbound Spring demo with local OMCs and the offline SDK provider. */
 class SpringSpnDemoE2ETest {
+  private static final String SPOOL_PROPERTY =
+      dev.openan.workflow.engine.registry.CenterExecutionReporting.SPOOL_VARIABLE;
   private dev.openan.workflow.engine.examples.testsupport.CapturedLogs captured;
   @org.junit.jupiter.api.io.TempDir java.nio.file.Path centerTestDirectory;
   private String previousCardLocations;
+  private String previousSpool;
   private final int[] cityPorts = new int[2];
   private java.nio.file.Path demoCredentials;
+
+  private static JsonNode centerData(HttpClient http, String url, String session) throws Exception {
+    var response =
+        http.send(
+            HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + session)
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+    assertEquals(200, response.statusCode(), url);
+    return new ObjectMapper().readTree(response.body()).path("data");
+  }
 
   @org.junit.jupiter.api.BeforeEach
   void captureLogs() throws Exception {
@@ -55,22 +88,17 @@ class SpringSpnDemoE2ETest {
     }
     locations.add("classpath:agentcard/transport_workbench_agent.json");
     System.setProperty("A2A_AGENT_CARD_LOCATIONS", String.join(",", locations));
+    // The reporting queue must not leak into the real home directory of whoever runs the tests.
+    previousSpool = System.getProperty(SPOOL_PROPERTY);
+    System.setProperty(SPOOL_PROPERTY, centerTestDirectory.resolve("execution-events").toString());
     String credentials;
     try (var input = getClass().getClassLoader().getResourceAsStream("spn_agent_credentials.example.json")) {
       credentials = new String(java.util.Objects.requireNonNull(input).readAllBytes(),
           java.nio.charset.StandardCharsets.UTF_8);
     }
-    credentials = credentials.replace(":26335/", ":" + cityPorts[0] + "/")
-        .replace(":26336/", ":" + cityPorts[1] + "/");
+    credentials = credentialsWithCityPorts(credentials);
     demoCredentials = centerTestDirectory.resolve("credentials.json");
     java.nio.file.Files.writeString(demoCredentials, credentials);
-  }
-
-  @org.junit.jupiter.api.AfterEach
-  void closeCapture() {
-    if (previousCardLocations == null) System.clearProperty("A2A_AGENT_CARD_LOCATIONS");
-    else System.setProperty("A2A_AGENT_CARD_LOCATIONS", previousCardLocations);
-    captured.close();
   }
 
   protected String cityTarget(int city) {
@@ -79,6 +107,23 @@ class SpringSpnDemoE2ETest {
 
   protected String demoCredentialsPath() {
     return demoCredentials.toString();
+  }
+
+  private String credentialsWithCityPorts(String json) throws Exception {
+    var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(json);
+    var fields = root.fields();
+    while (fields.hasNext()) {
+      var entry = fields.next();
+      var bearer =
+          (com.fasterxml.jackson.databind.node.ObjectNode) entry.getValue().path("bearerAuth");
+      var login = java.net.URI.create(bearer.path("login_url").asText());
+      int city = entry.getKey().endsWith("City2") ? 2 : 1;
+      bearer.put(
+          "login_url",
+          login.getScheme() + "://127.0.0.1:" + cityPorts[city - 1] + login.getPath());
+    }
+    return mapper.writeValueAsString(root);
   }
 
   @Test
@@ -252,17 +297,223 @@ class SpringSpnDemoE2ETest {
     }
   }
 
+  @org.junit.jupiter.api.AfterEach
+  void closeCapture() {
+    if (previousCardLocations == null) System.clearProperty("A2A_AGENT_CARD_LOCATIONS");
+    else System.setProperty("A2A_AGENT_CARD_LOCATIONS", previousCardLocations);
+    if (previousSpool == null) System.clearProperty(SPOOL_PROPERTY);
+    else System.setProperty(SPOOL_PROPERTY, previousSpool);
+    captured.close();
+  }
+
   private void runDemo() throws Exception {
+    runDemo(arguments());
+  }
+
+  private void runDemo(String[] arguments) throws Exception {
     OfflineA2ATLlmClient.install();
     String previous = System.getProperty("a2at.env.path");
     System.setProperty("a2at.env.path", OfflineA2ATLlmClient.envPath());
     try {
       // run() propagates failure unless the northbound Task reaches COMPLETED.
-      new SpringSpnDemo().run(arguments());
+      new SpringSpnDemo().run(arguments);
     } finally {
       if (previous == null) System.clearProperty("a2at.env.path");
       else System.setProperty("a2at.env.path", previous);
     }
+  }
+
+  @Test
+  @Timeout(120)
+  void northboundDemoWaitsForItsExecutionIdAtALocalCenter() throws Exception {
+    var server =
+        com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    var mapper = new ObjectMapper();
+    String revision = "a".repeat(64);
+    String source = "urn:openan:host:identity-" + "b".repeat(64);
+    String psopId = dev.openan.workflow.engine.examples.workbench.WorkbenchOrchestrator.SPN_PSOP_ID;
+    var reported = new java.util.concurrent.ConcurrentLinkedQueue<JsonNode>();
+    var searches = new java.util.concurrent.atomic.AtomicInteger();
+    // The PSOP is found from the task's intent; nothing pins it, so the demo must search first.
+    server.createContext(
+        "/api/v1/orchestrate/search",
+        exchange -> {
+          try (exchange) {
+            if (!"Bearer synthetic-local-center-session"
+                .equals(exchange.getRequestHeaders().getFirst("Authorization"))) {
+              exchange.sendResponseHeaders(401, -1);
+              return;
+            }
+            searches.incrementAndGet();
+            var intent = mapper.readTree(exchange.getRequestBody().readAllBytes());
+            assertTrue(intent.path("intent").asText().length() > 0, "the search carries the task");
+            byte[] response =
+                mapper.writeValueAsBytes(
+                    java.util.Map.of(
+                        "status",
+                        "success",
+                        "data",
+                        java.util.List.of(
+                            java.util.Map.of(
+                                "workflow_id", psopId, "name", "Local test PSOP", "score", 1.0))));
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
+          }
+        });
+    server.createContext(
+        "/api/v1/orchestrate/psop/" + psopId,
+        exchange -> {
+          try (exchange) {
+            if (!"Bearer synthetic-local-center-session"
+                .equals(exchange.getRequestHeaders().getFirst("Authorization"))) {
+              exchange.sendResponseHeaders(401, -1);
+              return;
+            }
+            var definition =
+                java.util.Map.of(
+                    "id",
+                    psopId,
+                    "name",
+                    "Local test PSOP",
+                    "revision",
+                    revision,
+                    "execution_reporting_source",
+                    source,
+                    "steps",
+                    java.util.List.of());
+            byte[] response =
+                mapper.writeValueAsBytes(java.util.Map.of("status", "success", "data", definition));
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
+          }
+        });
+    server.createContext(
+        "/api/v1/execution-events",
+        exchange -> {
+          try (exchange) {
+            if (!"Bearer synthetic-local-center-session"
+                .equals(exchange.getRequestHeaders().getFirst("Authorization"))) {
+              exchange.sendResponseHeaders(401, -1);
+              return;
+            }
+            var batch = mapper.readTree(exchange.getRequestBody().readAllBytes());
+            batch.forEach(reported::add);
+            byte[] ack =
+                mapper.writeValueAsBytes(
+                    java.util.Map.of(
+                        "execution_id",
+                        batch.get(0).path("subject").asText(),
+                        "accepted",
+                        batch.size(),
+                        "duplicates",
+                        0,
+                        "contiguous_through",
+                        batch.get(batch.size() - 1).path("seq").asText()));
+            exchange.sendResponseHeaders(200, ack.length);
+            exchange.getResponseBody().write(ack);
+          }
+        });
+    server.start();
+    try {
+      String url = "http://127.0.0.1:" + server.getAddress().getPort();
+      var online =
+          new ArrayList<>(
+              Arrays.stream(arguments())
+                  .filter(
+                      arg ->
+                          !arg.startsWith("--a2a.orch-url=")
+                              && !arg.startsWith("--a2a.local-workflow-enabled="))
+                  .toList());
+      online.add("--a2a.orch-url=" + url);
+      online.add("--a2a.local-workflow-enabled=false");
+      online.add("--a2a.orch-username=");
+      online.add("--a2a.orch-password=");
+      online.add("--a2a.orch-api-token=synthetic-local-center-session");
+      runDemo(online.toArray(String[]::new));
+
+      assertEquals(1, searches.get(), "the demo retrieves its PSOP by intent, exactly once");
+      assertEquals(2, reported.size());
+      JsonNode first = reported.remove();
+      JsonNode last = reported.remove();
+      assertEquals(source, first.path("source").asText());
+      assertEquals(psopId, first.path("data").path("psop_id").asText());
+      assertEquals(revision, first.path("data").path("psop_revision").asText());
+      assertTrue(last.path("type").asText().endsWith("execution.finished.v1"));
+      assertEquals(first.path("subject").asText(), last.path("subject").asText());
+      assertTrue(
+          captured
+              .since(0)
+              .contains(
+                  "EXECUTION_REPORTING_ACKNOWLEDGED execution_id="
+                      + last.path("subject").asText()));
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  @Timeout(120)
+  @EnabledIfEnvironmentVariable(named = "OPENAN_TEST_DEMO_CENTER_URL", matches = "https?://.+")
+  void northboundDemoIsVisibleInCenterExecutionHistory() throws Exception {
+    String center = System.getenv("OPENAN_TEST_DEMO_CENTER_URL");
+    String session = System.getenv("OPENAN_TEST_DEMO_CENTER_SESSION");
+    var onlineArguments =
+        new ArrayList<>(
+            Arrays.stream(arguments())
+                .filter(
+                    arg ->
+                        !arg.startsWith("--a2a.orch-url=")
+                            && !arg.startsWith("--a2a.local-workflow-enabled="))
+                .toList());
+    onlineArguments.add("--a2a.orch-url=" + center);
+    onlineArguments.add("--a2a.local-workflow-enabled=false");
+    onlineArguments.add("--a2a.orch-username=");
+    onlineArguments.add("--a2a.orch-password=");
+    onlineArguments.add("--a2a.orch-api-token=" + session);
+    onlineArguments.add(
+        "--a2a.orch-ca-certs-path="
+            + System.getenv().getOrDefault("OPENAN_TEST_DEMO_CENTER_CA", ""));
+
+    runDemo(onlineArguments.toArray(String[]::new));
+    String logs = captured.since(0);
+    assertTrue(logs.contains("EXECUTION_REPORTING_ACKNOWLEDGED"));
+    var confirmation =
+        Pattern.compile("Execution reporting confirmed by the center, execution_id=([0-9a-f-]+)")
+            .matcher(logs);
+    assertTrue(confirmation.find(), "The Demo must log its own confirmed execution ID");
+    String id = UUID.fromString(confirmation.group(1)).toString();
+
+    var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3));
+    String ca = System.getenv("OPENAN_TEST_DEMO_CENTER_CA");
+    if (ca != null && !ca.isBlank()) {
+      dev.openan.workflow.engine.registry.TlsPolicy.trustedCa(ca).configure(client);
+    }
+    HttpClient http = client.build();
+    JsonNode records = centerData(http, center + "/rest/v1/orchestrate/execution-records", session);
+    assertTrue(
+        records.findValuesAsText("execution_id").contains(id),
+        "Execution history must list this Demo");
+    JsonNode detail =
+        centerData(http, center + "/rest/v1/orchestrate/execution-records/" + id, session);
+    assertEquals("psop_spn_cross_city_diagnosis", detail.path("psop_id").asText());
+    assertTrue(detail.path("psop_revision").asText().matches("[0-9a-f]{64}"));
+    assertEquals("success", detail.path("status").asText());
+    assertEquals("complete", detail.path("event_coverage").asText());
+    assertEquals(0, detail.path("declared_gaps").asInt(-1));
+    Set<String> taskRefs = new HashSet<>();
+    Set<UUID> taskIds = new HashSet<>();
+    for (JsonNode task : detail.path("execution_history")) {
+      assertEquals("succeeded", task.path("outcome").asText());
+      taskRefs.add(task.path("task_ref").asText());
+      taskIds.add(UUID.fromString(task.path("task_id").asText()));
+    }
+    assertEquals(Set.of("s0/t0", "s1/t0", "s2/t0"), taskRefs);
+    assertEquals(taskRefs.size(), taskIds.size());
+    assertEquals(
+        id,
+        centerData(http, center + "/api/v1/executions/" + id, session)
+            .path("execution_id")
+            .asText());
   }
 
   @Test

@@ -26,8 +26,10 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,8 +49,17 @@ import org.slf4j.LoggerFactory;
 public class LoadPsop {
   private static final Logger log = LoggerFactory.getLogger(LoadPsop.class);
   private static final ObjectMapper mapper = new ObjectMapper();
-  private static final Timeouts DEFAULT_TIMEOUTS =
+
+  /** Deadlines for a storage read: the center answers a published revision from its store. */
+  static final Timeouts DEFAULT_TIMEOUTS =
       new Timeouts(Duration.ofSeconds(30), Duration.ofSeconds(30));
+
+  /**
+   * Deadlines for a retrieval. The center ranks its catalog with a language model, so one search
+   * routinely takes tens of seconds; the storage deadline is short enough to abort it.
+   */
+  static final Timeouts SEARCH_TIMEOUTS =
+      new Timeouts(Duration.ofSeconds(30), Duration.ofSeconds(120));
 
   public static Workflow load(String baseUrl, String psopId, String accessToken, boolean sslVerify)
       throws Exception {
@@ -77,7 +88,19 @@ public class LoadPsop {
   public static Workflow load(
       String baseUrl, String psopId, HttpAuthProvider auth, TlsPolicy tls, Timeouts timeouts)
       throws Exception {
-    java.util.Objects.requireNonNull(psopId, "psopId");
+    return loadForExecution(baseUrl, psopId, auth, tls, timeouts).workflow();
+  }
+
+  /** Loads the PSOP and its reporting identity using the same authenticated center request. */
+  public static LoadedPsop loadForExecution(
+      String baseUrl, String psopId, HttpAuthProvider auth, TlsPolicy tls) throws Exception {
+    return loadForExecution(baseUrl, psopId, auth, tls, DEFAULT_TIMEOUTS);
+  }
+
+  private static LoadedPsop loadForExecution(
+      String baseUrl, String psopId, HttpAuthProvider auth, TlsPolicy tls, Timeouts timeouts)
+      throws Exception {
+    Objects.requireNonNull(psopId, "psopId");
     if (psopId.isBlank() || psopId.equals(".") || psopId.equals("..")) {
       throw new IllegalArgumentException("psopId must identify a workflow");
     }
@@ -90,7 +113,7 @@ public class LoadPsop {
     if (resp.statusCode() != 200) {
       throw requestFailure(resp);
     }
-    Workflow wf =
+    LoadedPsop loaded =
         HttpResponseParser.parse(
             "Orchestration center",
             "load workflow",
@@ -99,20 +122,32 @@ public class LoadPsop {
             data -> {
               @SuppressWarnings("unchecked")
               Map<String, Object> psopData = (Map<String, Object>) data.getOrDefault("data", data);
-              return Workflow.fromMap(psopData);
+              return new LoadedPsop(
+                  Workflow.fromMap(psopData),
+                  psopData.get("execution_reporting_source") instanceof String source
+                      ? source
+                      : null);
             });
+    Workflow wf = loaded.workflow();
     log.info("[Registry] Loaded workflow: {}, {} steps", wf.getName(), wf.getSteps().size());
-    return wf;
+    return loaded;
+  }
+
+  public static List<WorkflowSearchResult> search(
+      String baseUrl, String intent, int topN, String accessToken, boolean sslVerify)
+      throws Exception {
+    return search(baseUrl, intent, topN, accessToken, sslVerify, SEARCH_TIMEOUTS);
   }
 
   public static Workflow load(String baseUrl, String psopId) throws Exception {
     return load(baseUrl, psopId, null, true);
   }
 
+  /** Searches using credentials evaluated before every request. */
   public static List<WorkflowSearchResult> search(
-      String baseUrl, String intent, int topN, String accessToken, boolean sslVerify)
+      String baseUrl, String intent, int topN, HttpAuthProvider auth, TlsPolicy tls)
       throws Exception {
-    return search(baseUrl, intent, topN, accessToken, sslVerify, DEFAULT_TIMEOUTS);
+    return search(baseUrl, intent, topN, auth, tls, SEARCH_TIMEOUTS);
   }
 
   /** Searches workflows with explicit connection and response-read deadlines. */
@@ -131,13 +166,6 @@ public class LoadPsop {
         tokenAuth(accessToken),
         sslVerify ? TlsPolicy.strict() : TlsPolicy.insecure(),
         timeouts);
-  }
-
-  /** Searches using credentials evaluated before every request. */
-  public static List<WorkflowSearchResult> search(
-      String baseUrl, String intent, int topN, HttpAuthProvider auth, TlsPolicy tls)
-      throws Exception {
-    return search(baseUrl, intent, topN, auth, tls, DEFAULT_TIMEOUTS);
   }
 
   /** Searches with independent authentication, TLS policy and explicit deadlines. */
@@ -166,7 +194,7 @@ public class LoadPsop {
               @SuppressWarnings("unchecked")
               List<Map<String, Object>> rawResults =
                   (List<Map<String, Object>>) data.getOrDefault("data", List.of());
-              List<WorkflowSearchResult> parsed = new java.util.ArrayList<>();
+              List<WorkflowSearchResult> parsed = new ArrayList<>();
               for (Map<String, Object> raw : rawResults) {
                 parsed.add(
                     WorkflowSearchResult.builder()
@@ -189,6 +217,27 @@ public class LoadPsop {
     return results;
   }
 
+  private static CenterHttpClient.Response execute(
+      String method,
+      String url,
+      String jsonBody,
+      HttpAuthProvider auth,
+      TlsPolicy tls,
+      Timeouts timeouts)
+      throws Exception {
+    Objects.requireNonNull(timeouts, "timeouts");
+    Objects.requireNonNull(auth, "auth");
+    Objects.requireNonNull(tls, "tls");
+    URI uri = URI.create(url);
+    var response = CenterHttpClient.execute(method, uri, jsonBody, auth, tls, timeouts, 0);
+    // Both operations are read-only (search uses POST); no business execution/write is replayed.
+    if (response.statusCode() == 401
+        && HttpAuthentication.onUnauthorized(auth, uri, response.credentials())) {
+      return CenterHttpClient.execute(method, uri, jsonBody, auth, tls, timeouts, 0);
+    }
+    return response;
+  }
+
   private static HttpAuthProvider tokenAuth(String token) {
     return token == null || token.isEmpty()
         ? HttpAuthProvider.none()
@@ -200,26 +249,7 @@ public class LoadPsop {
         "Orchestration center", response.statusCode(), response.body(), response.credentials());
   }
 
-  private static CenterHttpClient.Response execute(
-      String method,
-      String url,
-      String jsonBody,
-      HttpAuthProvider auth,
-      TlsPolicy tls,
-      Timeouts timeouts)
-      throws Exception {
-    java.util.Objects.requireNonNull(timeouts, "timeouts");
-    java.util.Objects.requireNonNull(auth, "auth");
-    java.util.Objects.requireNonNull(tls, "tls");
-    URI uri = URI.create(url);
-    var response = CenterHttpClient.execute(method, uri, jsonBody, auth, tls, timeouts, 0);
-    // Both operations are read-only (search uses POST); no business execution/write is replayed.
-    if (response.statusCode() == 401
-        && HttpAuthentication.onUnauthorized(auth, uri, response.credentials())) {
-      return CenterHttpClient.execute(method, uri, jsonBody, auth, tls, timeouts, 0);
-    }
-    return response;
-  }
+  public record LoadedPsop(Workflow workflow, String reportingSource) {}
 
   /** Convenience: search with defaults (top_n=5, no token, ssl_verify=true). */
   public static List<WorkflowSearchResult> search(String baseUrl, String intent) throws Exception {

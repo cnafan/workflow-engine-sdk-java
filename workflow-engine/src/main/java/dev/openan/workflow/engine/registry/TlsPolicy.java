@@ -78,7 +78,8 @@ public final class TlsPolicy {
         SslContextFactory.createInsecure(clientCertPath, clientKeyPath, keyPassword), true);
   }
 
-  void configure(HttpClient.Builder client) {
+  /** Applies this policy to a client dedicated to the orchestration center. */
+  public void configure(HttpClient.Builder client) {
     if (context != null) client.sslContext(context);
     warnIfInsecure();
   }

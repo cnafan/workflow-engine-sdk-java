@@ -19,10 +19,13 @@
 
 package dev.openan.workflow.engine.examples.workbench;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.openan.workflow.engine.client.A2AJavaClientRuntime;
 import dev.openan.workflow.engine.client.A2ATransport;
 import dev.openan.workflow.engine.client.AuthProvider;
 import dev.openan.workflow.engine.client.DefaultWorkflowEngineClient;
+import dev.openan.workflow.engine.client.WireLog;
 import dev.openan.workflow.engine.client.WorkflowEngineClient;
 import dev.openan.workflow.engine.client.WorkflowEngineClientConfig;
 import dev.openan.workflow.engine.control.EventCallback;
@@ -35,14 +38,22 @@ import dev.openan.workflow.engine.model.Task;
 import dev.openan.workflow.engine.model.Workflow;
 import dev.openan.workflow.engine.model.WorkflowSearchResult;
 import dev.openan.workflow.engine.model.WorkflowStep;
+import dev.openan.workflow.engine.registry.CenterExecutionReporting;
 import dev.openan.workflow.engine.registry.HttpAuthProvider;
 import dev.openan.workflow.engine.registry.LoadPsop;
 import dev.openan.workflow.engine.registry.TlsPolicy;
 import dev.openan.workflow.engine.runner.ExecutePsop;
+import dev.openan.workflow.engine.runner.ExecutionReporter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.a2aproject.sdk.spec.AgentCard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +77,10 @@ import org.slf4j.LoggerFactory;
 public class WorkbenchOrchestrator {
 
   private static final Logger log = LoggerFactory.getLogger(WorkbenchOrchestrator.class);
-  private static final String FALLBACK_PSOP_ID = "psop_spn_cross_city_diagnosis";
+  public static final String SPN_PSOP_ID = "psop_spn_cross_city_diagnosis";
+
+  /** Ranked candidates inspected before giving up: ranking moves, and the host still filters. */
+  private static final int SEARCH_CANDIDATES = 10;
 
   private final String orchUrl;
   private final String credentialsPath;
@@ -75,6 +89,7 @@ public class WorkbenchOrchestrator {
   private final A2AJavaClientRuntime clientRuntime;
   private final AuthProvider authProvider;
   private final CenterAccess centerAccess;
+  private final CenterExecutionReporting reporting;
 
   public WorkbenchOrchestrator(
       String orchUrl, String credentialsPath, boolean sslVerify, String a2atEnvPath) {
@@ -119,13 +134,34 @@ public class WorkbenchOrchestrator {
       A2AJavaClientRuntime clientRuntime,
       AuthProvider authProvider,
       CenterAccess centerAccess) {
+    this(
+        orchUrl,
+        credentialsPath,
+        sslVerify,
+        a2atEnvPath,
+        clientRuntime,
+        authProvider,
+        centerAccess,
+        null);
+  }
+
+  public WorkbenchOrchestrator(
+      String orchUrl,
+      String credentialsPath,
+      boolean sslVerify,
+      String a2atEnvPath,
+      A2AJavaClientRuntime clientRuntime,
+      AuthProvider authProvider,
+      CenterAccess centerAccess,
+      CenterExecutionReporting reporting) {
     this.orchUrl = orchUrl;
     this.credentialsPath = credentialsPath;
     this.sslVerify = sslVerify;
     this.a2atEnvPath = a2atEnvPath;
     this.clientRuntime = clientRuntime;
     this.authProvider = authProvider;
-    this.centerAccess = java.util.Objects.requireNonNull(centerAccess, "centerAccess");
+    this.centerAccess = Objects.requireNonNull(centerAccess, "centerAccess");
+    this.reporting = reporting;
   }
 
   static String buildResultText(ExecutionResult result) {
@@ -136,11 +172,11 @@ public class WorkbenchOrchestrator {
           if (last.get("outputs") instanceof List<?> outputs && !outputs.isEmpty()) {
             Object step = last.get("step");
             return result.getHistory().stream()
-                .filter(entry -> java.util.Objects.equals(step, entry.get("step")))
+                .filter(entry -> Objects.equals(step, entry.get("step")))
                 .filter(entry -> entry.get("outputs") instanceof List<?>)
                 .flatMap(entry -> ((List<?>) entry.get("outputs")).stream())
                 .map(WorkbenchOrchestrator::renderOutput)
-                .collect(java.util.stream.Collectors.joining("\n\n"));
+                .collect(Collectors.joining("\n\n"));
           }
         }
       }
@@ -174,11 +210,7 @@ public class WorkbenchOrchestrator {
       if (value == null || value instanceof Map<?, ?> map && map.isEmpty()) continue;
       String rendered = renderOutput(value);
       if (!rendered.isBlank()) {
-        text.append("  ")
-            .append(field)
-            .append(": ")
-            .append(dev.openan.workflow.engine.client.WireLog.redact(rendered))
-            .append("\n");
+        text.append("  ").append(field).append(": ").append(WireLog.redact(rendered)).append("\n");
       }
     }
   }
@@ -189,20 +221,16 @@ public class WorkbenchOrchestrator {
     }
     return output.values().stream()
         .filter(value -> value != null && !String.valueOf(value).isBlank())
-        .flatMap(
-            value ->
-                value instanceof List<?> values
-                    ? values.stream()
-                    : java.util.stream.Stream.of(value))
+        .flatMap(value -> value instanceof List<?> values ? values.stream() : Stream.of(value))
         .map(WorkbenchOrchestrator::renderOutput)
-        .collect(java.util.stream.Collectors.joining("\n\n"));
+        .collect(Collectors.joining("\n\n"));
   }
 
   private static String renderOutput(Object value) {
     if (value instanceof String text) return text;
     try {
-      return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value);
-    } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+      return new ObjectMapper().writeValueAsString(value);
+    } catch (JsonProcessingException error) {
       throw new IllegalArgumentException("Cannot serialize business output", error);
     }
   }
@@ -220,7 +248,7 @@ public class WorkbenchOrchestrator {
                                   next -> result.getStepOutputs().containsKey(next.getStep())))
               .map(step -> outputText(result.getStepOutputs().get(step.getName())))
               .filter(output -> !output.isBlank())
-              .collect(java.util.stream.Collectors.joining("\n\n"));
+              .collect(Collectors.joining("\n\n"));
       if (!terminalOutputs.isBlank()) return terminalOutputs;
     }
     return buildResultText(result);
@@ -262,7 +290,7 @@ public class WorkbenchOrchestrator {
             .next(List.of(JumpCondition.builder().step("endNode").condition("").build()))
             .build();
     return Workflow.builder()
-        .id(FALLBACK_PSOP_ID)
+        .id(SPN_PSOP_ID)
         .name("SPN跨地市专线投诉诊断")
         .description("两个地市并行诊断后由工作台本地汇总")
         .steps(List.of(city1, city2, merge))
@@ -284,6 +312,15 @@ public class WorkbenchOrchestrator {
   }
 
   String run(String messageText, boolean demoNegotiationEnabled, ExecutionCancellation cancellation)
+      throws Exception {
+    return run(messageText, demoNegotiationEnabled, cancellation, ignored -> {});
+  }
+
+  String run(
+      String messageText,
+      boolean demoNegotiationEnabled,
+      ExecutionCancellation cancellation,
+      Consumer<String> executionStarted)
       throws Exception {
     A2ATransport transport = null;
     try {
@@ -316,6 +353,11 @@ public class WorkbenchOrchestrator {
       cancellation.check();
       String psopId = resolvedWorkflow.psopId();
       Workflow workflow = resolvedWorkflow.workflow();
+      ExecutionReporter reporter =
+          reporting == null ? null : reporting.forPsop(resolvedWorkflow.loaded());
+      if (reporting != null && reporter == null) {
+        log.warn("[Orchestrator] Execution reporting unavailable for psopId={}", psopId);
+      }
       log.info(
           "[Orchestrator] STAGE_DONE stage=search-load-psop, psopId={}, workflow={}, "
               + "steps={}, elapsedMs={}",
@@ -356,11 +398,12 @@ public class WorkbenchOrchestrator {
         CompletableFuture<ExecutionResult> execution =
             ExecutePsop.builder()
                 .psop(workflow)
+                .reporter(reporter)
                 .controlPoint(controlPoint)
                 .engineClient(engineClient)
                 .runtimeIntent(messageText)
                 .lang("zh")
-                .eventCallback(createLogCallback(transport.getContextId()))
+                .eventCallback(createLogCallback(transport.getContextId(), executionStarted))
                 .onFinish(
                     (r, events) -> {
                       log.info(
@@ -427,25 +470,75 @@ public class WorkbenchOrchestrator {
     if (centerAccess.localWorkflowEnabled()) {
       log.warn(
           "[Orchestrator] LOCAL_DEMO_WORKFLOW psopId={} (center access explicitly disabled)",
-          FALLBACK_PSOP_ID);
-      return new ResolvedWorkflow(FALLBACK_PSOP_ID, fallbackWorkflow());
+          SPN_PSOP_ID);
+      return new ResolvedWorkflow(SPN_PSOP_ID, new LoadPsop.LoadedPsop(fallbackWorkflow(), null));
     }
+    // The PSOP comes from the task's own intent. Pinning one in configuration would bypass the
+    // retrieval this host exists to exercise, and would hide a search that stopped working.
     List<WorkflowSearchResult> results =
-        LoadPsop.search(orchUrl, messageText, 3, centerAccess.auth(), centerAccess.tls());
+        LoadPsop.search(
+            orchUrl, messageText, SEARCH_CANDIDATES, centerAccess.auth(), centerAccess.tls());
     if (results.isEmpty())
       throw new IllegalStateException("Orchestration center returned no matching workflow");
-    String psopId = results.get(0).getWorkflowId();
-    log.info("[Orchestrator] Found PSOP: {} (score={})", psopId, results.get(0).getScore());
-    return new ResolvedWorkflow(
-        psopId, LoadPsop.load(orchUrl, psopId, centerAccess.auth(), centerAccess.tls()));
+    // Relevance only says a PSOP may fit the intent. Ranking is a model's opinion and moves
+    // between calls, so the best match can be one this host is not declared to execute, or a
+    // generic workflow that declares no host and needs agents this host does not run. Candidates
+    // are loaded in rank order and a declaration for this host wins over the absence of one.
+    // A center failure while loading a candidate is not a reason to look at the next one.
+    List<LoadPsop.LoadedPsop> candidates = new ArrayList<>();
+    List<WorkflowSearchResult> candidateResults = new ArrayList<>();
+    List<String> skipped = new ArrayList<>();
+    for (WorkflowSearchResult result : results) {
+      String psopId = result.getWorkflowId();
+      LoadPsop.LoadedPsop loaded =
+          LoadPsop.loadForExecution(orchUrl, psopId, centerAccess.auth(), centerAccess.tls());
+      String declaredHost = loaded.workflow().declaredHost().orElse(null);
+      candidates.add(loaded);
+      candidateResults.add(result);
+      if (declaredHost != null && !centerAccess.servedHosts().contains(declaredHost)) {
+        skipped.add(psopId + " is declared for host '" + declaredHost + "'");
+        log.warn(
+            "[Orchestrator] PSOP_SKIPPED psopId={} score={} declaredHost={} servedHosts={}",
+            psopId,
+            result.getScore(),
+            declaredHost,
+            centerAccess.servedHosts());
+      }
+    }
+    for (int index = 0; index < candidates.size(); index++) {
+      String declaredHost = candidates.get(index).workflow().declaredHost().orElse(null);
+      if (declaredHost == null || !centerAccess.servedHosts().contains(declaredHost)) continue;
+      return found(candidateResults.get(index), candidates.get(index), declaredHost);
+    }
+    for (int index = 0; index < candidates.size(); index++) {
+      if (candidates.get(index).workflow().declaredHost().isPresent()) continue;
+      return found(candidateResults.get(index), candidates.get(index), null);
+    }
+    throw new IllegalStateException(
+        "None of the matching workflows is executed by this host: " + String.join("; ", skipped));
   }
 
-  private EventCallback createLogCallback(String contextId) {
+  /** Reports the candidate that was chosen, and which of the two passes chose it. */
+  private ResolvedWorkflow found(
+      WorkflowSearchResult result, LoadPsop.LoadedPsop loaded, String declaredHost) {
+    log.info(
+        "[Orchestrator] Found PSOP: {} (score={}, declaredHost={})",
+        result.getWorkflowId(),
+        result.getScore(),
+        declaredHost);
+    return new ResolvedWorkflow(result.getWorkflowId(), loaded);
+  }
+
+  private EventCallback createLogCallback(String contextId, Consumer<String> executionStarted) {
     return new EventCallback() {
       @Override
       public void onEvent(String type, Map<String, Object> data) {
         switch (type) {
-          case EventType.START -> log.info("  [START] {}", data.get("workflow"));
+          case EventType.START -> {
+            String executionId = (String) data.get("executionId");
+            executionStarted.accept(executionId);
+            log.info("  [START] {} execution_id={}", data.get("workflow"), executionId);
+          }
           case EventType.STEP_START -> log.info("  [STEP_START] {}", data.get("step"));
           case EventType.TASK_REQUEST -> log.info("  [TASK_REQUEST] agent={}", data.get("agent"));
           case EventType.TASK_RESPONSE ->
@@ -490,8 +583,7 @@ public class WorkbenchOrchestrator {
                   "  [ERROR] contextId={}, step={}, reason={}",
                   contextId,
                   data.getOrDefault("step", "(workflow)"),
-                  dev.openan.workflow.engine.client.WireLog.redact(
-                      String.valueOf(data.getOrDefault("error", "Execution failed"))));
+                  WireLog.redact(String.valueOf(data.getOrDefault("error", "Execution failed"))));
           case EventType.CLOSE -> log.info("  [CLOSE]");
           default -> {}
         }
@@ -499,13 +591,28 @@ public class WorkbenchOrchestrator {
     };
   }
 
-  record ResolvedWorkflow(String psopId, Workflow workflow) {}
+  record ResolvedWorkflow(String psopId, LoadPsop.LoadedPsop loaded) {
+    Workflow workflow() {
+      return loaded.workflow();
+    }
+  }
 
-  /** Local workflow mode is an explicit offline demo, never a response to center failures. */
-  public record CenterAccess(HttpAuthProvider auth, TlsPolicy tls, boolean localWorkflowEnabled) {
+  /**
+   * How this host may use the center: its credentials and TLS, the local workflow mode, and the
+   * hosts whose PSOPs this process executes. Local workflow mode is an explicit offline demo,
+   * never a response to center failures.
+   */
+  public record CenterAccess(
+      HttpAuthProvider auth, TlsPolicy tls, boolean localWorkflowEnabled, Set<String> servedHosts) {
     public CenterAccess {
-      java.util.Objects.requireNonNull(auth, "auth");
-      java.util.Objects.requireNonNull(tls, "tls");
+      Objects.requireNonNull(auth, "auth");
+      Objects.requireNonNull(tls, "tls");
+      servedHosts = servedHosts == null ? Set.of() : Set.copyOf(servedHosts);
+    }
+
+    /** Center access for a host that executes only PSOPs which declare no host. */
+    public CenterAccess(HttpAuthProvider auth, TlsPolicy tls, boolean localWorkflowEnabled) {
+      this(auth, tls, localWorkflowEnabled, Set.of());
     }
   }
 }
